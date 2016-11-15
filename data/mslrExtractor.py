@@ -24,8 +24,11 @@ def readmslr(filename):
     with open(filename) as mslrfile:
         for line in mslrfile:
             tokens = line.split()
-            y = np.vstack((y, np.array([int(tokens[0])])))
-            X = np.vstack((X, np.array([float(x.split(':')[1]) for x in tokens[2:]])))
+            score = int(tokens[0])
+            features = [float(x.split(':')[1]) for x in tokens[2:]]
+            features.remove('\n')
+            y = np.vstack((y, np.array([score])))
+            X = np.vstack((X, np.array(features)))
     return X, y
 
 if __name__ == '__main__':
