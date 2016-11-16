@@ -41,7 +41,7 @@ logging.basicConfig(format='%(asctime)s : %(message)s', level=logging.INFO)
 
 # Train the model on the given training data
 def train_model(model, X_train, y_train):
-	model.fit(X_train, y_train)
+	model.fit(X_train, y_train.ravel())
 
 # Test the model on the given testing data
 def test_model(model, X_test, y_test, metric):
@@ -87,6 +87,7 @@ if __name__ == '__main__':
     options, args = parser.parse_args()
 
     params = {}
+    params['n_jobs'] = 4
     report_dict = {}
 
     # Validate command line arguments
@@ -120,12 +121,8 @@ if __name__ == '__main__':
 	X = npzfile['X']
 	y = npzfile['y']
 
-	print("X shape: ", X.shape)
-	print("y shape: ", y.shape)
-	exit(0)
-
 	if options.verbose:
-		logging.info("Done loading training file")
+		logging.info("Shape of the loaded training data. X:(%d,%d), y:(%d,%d)" %(X.shape[0], X.shape[1], y.shape[0], y.shape[1]))
 
 	X_test = None
 	y_test = None
@@ -144,10 +141,13 @@ if __name__ == '__main__':
 		X_test = npzfile['X']
 		y_test = npzfile['y']
 
+	if options.verbose:
+		logging.info("Shape of the loaded testing data. X:(%d,%d), y:(%d,%d)" %(X_test.shape[0], X_test.shape[1], y_test.shape[0], y_test.shape[1]))
 
 	if options.verbose:
 		logging.info("Setting the model to be learned to: %s" % options.model)
 		logging.info("With parameters: %s" % str(params))
+
 
 	model = None
 	if options.model == 'rf':
@@ -186,7 +186,7 @@ if __name__ == '__main__':
 	# Write the model out to a file
 	dump_model(model, options.modelout)
 
-	if options.report not None:
+	if options.report is not None:
 		write_report(options.report, report_dict)
 
 	if options.verbose:
