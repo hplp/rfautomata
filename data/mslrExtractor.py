@@ -18,15 +18,17 @@ import logging
 # Turn on logging.
 logging.basicConfig(format='%(asctime)s : %(message)s', level=logging.INFO)
 
+# Read the MSLR file and stack X and y
 def readmslr(filename):
     y = np.empty((0, 1), int)
-    X = np.empty((0, 135), float)
+    X = np.empty((0, 136), float)
     with open(filename) as mslrfile:
         for line in mslrfile:
             tokens = line.split()
             score = int(tokens[0])
             features = [float(x.split(':')[1]) for x in tokens[2:]]
-            features.remove('\n')
+            if '\n' in features:
+                features.remove('\n')
             y = np.vstack((y, np.array([score])))
             X = np.vstack((X, np.array(features)))
     return X, y
