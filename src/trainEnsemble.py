@@ -88,7 +88,6 @@ if __name__ == '__main__':
     options, args = parser.parse_args()
 
     params = {}
-    params['n_jobs'] = 10
     report_dict = {}
 
     # Validate command line arguments
@@ -152,6 +151,7 @@ if __name__ == '__main__':
 
 	model = None
 	if options.model == 'rf':
+		params['n_jobs'] = 10
 		model = RandomForestClassifier(**params)
 	elif options.model == 'brt':
 		model = GradientBoostingClassifier(**params)
