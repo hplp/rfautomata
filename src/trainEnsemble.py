@@ -88,7 +88,7 @@ if __name__ == '__main__':
     options, args = parser.parse_args()
 
     params = {}
-    params['n_jobs'] = 4
+    params['n_jobs'] = 10
     report_dict = {}
 
     # Validate command line arguments
@@ -178,8 +178,8 @@ if __name__ == '__main__':
 
 	result = test_model(model, X_test, y_test, metric)
 
-	logging.info(metric_names[metric] + ": " + result)
-	report_dict[metric_names[metric]] = result
+	logging.info(metric_names[metric] + ": " + str(result))
+	report_dict[metric_names[metric]] = str(result)
 
 	if options.verbose:
 		logging.info("Writing model out to %s" % options.modelout)
