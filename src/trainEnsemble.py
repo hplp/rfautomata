@@ -45,8 +45,8 @@ def train_model(model, X_train, y_train):
 
 # Test the model on the given testing data
 def test_model(model, X_test, y_test, metric):
-	if metric == 'mse':
-		return metrics.mean_squared_error(y_test, model.predict(X_test))
+	if metric == 'acc':
+		return metrics.accuracy_score(y_test, model.predict(X_test))
 	elif metric == 'f1':
 		return metrics.f1_score(y_test, model.predict(X_test))
 	elif metric == 'mse':
@@ -61,9 +61,10 @@ def dump_model(model, modelfile):
 	pickle.dump(model, f)
 	f.close()
 
+# Write report out to file
 def write_report(report_name, report_dict):
 	f = open(report_name, 'w')
-	for key, value in report_dic.items():
+	for key, value in report_dict.items():
 		f.write(str(key)+": "+str(value))
 	f.close()
 	return
@@ -177,8 +178,8 @@ if __name__ == '__main__':
 
 	result = test_model(model, X_test, y_test, metric)
 
-	logging.info(metric_names[options.metric] + ": " + result)
-	report_dict[metric] = result
+	logging.info(metric_names[metric] + ": " + result)
+	report_dict[metric_names[metric]] = result
 
 	if options.verbose:
 		logging.info("Writing model out to %s" % options.modelout)
