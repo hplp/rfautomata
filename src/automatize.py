@@ -13,16 +13,20 @@
 '''
 
 
-# Support Imports
+# Utility Imports
 from optparse import OptionParser
 import logging
-import chain
 import pickle
 import numpy as np
+
+# RF Automata Imports
+from chain import *
+from featureTable import *
 
 # SKLEARN inputs
 
 # Micron AP import
+#from anmltools import *
 
 # Turn on logging.
 logging.basicConfig(format='%(asctime)s : %(message)s', level=logging.INFO)
@@ -33,7 +37,6 @@ def load_model(modelfile):
     model = pickle.load(f)
     f.close()
     return model
-
 
 '''
     Attributes of an SKLEARN Tree -- returned by dir(tree)
@@ -51,45 +54,49 @@ def load_model(modelfile):
 '''
 
 # Convert tree to chains
-def tree_to_chains(tree, chains, features, threshold_map):
-
-    # Return a list of chains
-    #chains = []
-
-    # Return a list of features used
-    #features = []
-
-    # Return dictionary mapping features to all thresholds
-    #threshold_map = {}
+def tree_to_chains(tree, tree_id, chains, features, threshold_map):
 
     # Root node attributes
     feature = tree.feature[0]
     threshold = tree.threshold[0]
 
-    # Keeping track of features and associated thresholds
+    # Keeping track of features and associated thresholds for all trees
     if feature not in features:
         features.append(feature)
         threshold_map[feature] = [threshold]
-
     elif threshold not in threshold_map[feature]:
         threshold_map[feature].append(threshold)
 
-
-    value = np.argmax(tree.value[0])
+    # Because we're a root node, we dont care
+    value = None#np.argmax(tree.value[0])
     left = tree.children_left[0]
     right = tree.children_right[0]
 
-    left_chain = chain.Chain()
-    node = chain.Node(feature, threshold, value, False, False)
+    left_chain = Chain(tree_id)
+                    # feature, threshold, value, leaf, gt)
+    node = Node(feature, threshold, False)
     left_chain.add_node(node)
-    left_chain.set_start(node)
+        
     chains += recurse(tree, left, left_chain, features, threshold_map)
 
-    right_chain = chain.Chain()
-    node = chain.Node(feature, threshold, value, False, True)
+    right_chain = Chain(tree_id)
+                    # feature, threshold, value, leaf, gt)
+    node = Node(feature, threshold, True)
     right_chain.add_node(node)
-    right_chain.set_start(node)
+        
     chains += recurse(tree, right, right_chain, features, threshold_map)
+
+    # Because we built the chains from the left-most to the right-most leaf
+    # We can simply assign chain ids sequentially over our list
+    for chain_id, chain in enumerate(chains):
+        chain.set_chain_id(chain_id)
+
+    # Sort the features
+    features.sort()
+
+    # Sort the thresholds for all features
+    for k,val in threshold_map.items():
+        val.sort()
 
 # Recursive function to convert trees into chains
 def recurse(tree, index, temp_chain, features, threshold_map):
@@ -101,14 +108,10 @@ def recurse(tree, index, temp_chain, features, threshold_map):
     left = tree.children_left[index]
     right = tree.children_right[index]
 
-    leaf = (feature == -2)          # We're a leaf (also an end)
+    # We're a leaf (also an end)
+    if feature == -2:
 
-    if leaf:                        # It's a leaf
-
-        node = chain.Node(feature, threshold, value, True, False)
-        temp_chain.add_edge(temp_chain.nodes_[-1], node)
-        temp_chain.set_end(node)
-
+        temp_chain.set_value(value)
         return [temp_chain]
 
     else:                           # We can do this because all trees with children have both
@@ -121,12 +124,15 @@ def recurse(tree, index, temp_chain, features, threshold_map):
         elif threshold not in threshold_map[feature]:
             threshold_map[feature].append(threshold)
 
-        node = chain.Node(feature, threshold, value, leaf, False)
-        temp_chain.add_edge(temp_chain.nodes_[-1], node)
+                        # feature, threshold, value, leaf, gt)
+        node = Node(feature, threshold, False)
+        temp_chain.add_node(node)
+
         right_copy = temp_chain.copy()
 
         left_chains =  recurse(tree, left, temp_chain, features, threshold_map)
 
+        # Flip the last node, we're going right (>)!
         right_copy.nodes_[-1].set_direction(True)
 
         right_chains = recurse(tree, right, right_copy, features, threshold_map)
@@ -134,22 +140,73 @@ def recurse(tree, index, temp_chain, features, threshold_map):
         return left_chains + right_chains
 
 # Set the character sets of each node in the chains
-def set_character_sets(chain, features, threshold_map):
+def set_character_sets(chain, ft, threshold_map):
 
+    # Iterate through all nodes, 
     for node in chain.nodes_:
-        feature = node.compute_
+
+        # Let us build a character set list
+        character_set = []
+
+        # Grab node attributes
+        feature = node.feature_
         threshold = node.threshold_
         gt = node.gt_
 
-        feature_range = threshold_map[feature]
+        # Grab STE labels associated with feature
+        ste, start, end = ft.get_range(feature)
+
+        print "STE, START, END: ", ste, start, end
+        print "Threshold Ranges: ", threshold_map[feature]
+        print 'GR: ', gt
 
         # We're at a <= node
         if not gt:
-            min_symbol = 0      # The left-most symbol is always accepted by a <= node
+
+            # Let's go
+            labels = range(start, end + 1)
+            threshold_limits = threshold_map[feature] + [-1]
+
+            assert len(labels) == len(threshold_limits), "len labels != len threshold_limits!"
+
+            for label, threshold_limit in zip(labels, threshold_limits):
+
+                # We've reached the end
+                if threshold_limit == -1:
+                    character_set.append(label)
+
+                # Our thresholds == the current range limit, so we're done
+                elif threshold == threshold_limit:
+                    character_set.append(label)
+                    break
+                # Our threshold < current range limit, move on
+                elif threshold < threshold_limit:
+                    character_set.append(label)
+
+                # Our threshold is > current range limit, break
+                else:
+                    break
 
         else:
-            max_symbol = 
 
+            # Let's do this
+            labels = range(end, start - 1, -1)
+            threshold_limits = (threshold_map[feature] + [-1])[::-1]
+
+            assert len(labels) == len(threshold_limits), "len labels != len threshold_limits!"
+
+            for label, threshold_limit in zip(labels, threshold_limits):
+                
+                if threshold_limit == -1:
+                    character_set.append(label)
+
+                elif threshold > threshold_limit:
+                    character_set.append(label)
+                else:
+                    break
+
+        print "Assigned character set: ", character_set
+        node.set_character_set(character_set)
 
 
 # Main()
@@ -171,7 +228,7 @@ if __name__ == '__main__':
         exit(-1)
 
     # Grab the constituent trees
-    trees = [dtc.tree_ for dtc in  model.estimators_]
+    trees = [dtc.tree_ for dtc in model.estimators_]
 
     # Convert all trees to chains
     chains = []
@@ -179,21 +236,26 @@ if __name__ == '__main__':
     # Keep track of all features used in the forest
     features = []
 
-    # Keep track of features to all thresholds
+    # Keep track of features -> thresholds
     threshold_map = {}
 
     # Iterate through all trees in the forest and keep track of chains, features, and thresholds
-    for tree in trees:
-        tree_to_chains(tree, chains, features, threshold_map)
+    for tree_id, tree in enumerate(trees):
+        tree_to_chains(tree, tree_id, chains, features, threshold_map)
 
-    # Sort the features
-    features.sort()
-
-    # For each set of thresholds, sort them
-    for k, v in threshold_map.items():
-        v.sort()
+    # Create ideal address spacing for all features and thresholds
+    ft = FeatureTable(features, threshold_map)
+    ft.compact()    # Run the compactor (NOT IDEAL, but good enough)
 
     # Set the character sets for each node in the chains
+    # Then sort and combine the states in the chains
     for chain in chains:
-        set_character_sets(chain, features, threshold_map)
+        set_character_sets(chain, ft, threshold_map)
+        chain.sort_and_combine()
+        print chain
+
+    print ft
+
+
+
 
