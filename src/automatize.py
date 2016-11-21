@@ -44,7 +44,7 @@ def load_cft_vm(cftFile):
     logging.info("Loading Chains, FT, ValueMap file from %s" % cftFile)
 
     f = open(cftFile, 'rb')
-    chains, ft, value_map = pickel.load(f)
+    chains, ft, value_map = pickle.load(f)
     f.close()
 
     return chains, ft, value_map
@@ -232,7 +232,7 @@ if __name__ == '__main__':
 
     # This allows us to test the ANML code faster
     if options.cftvm is not None:
-        chains, ft, value_map = load_cft_vm(options.cft)
+        chains, ft, value_map = load_cft_vm(options.cftvm)
 
     # Otherwise, let's do this from scratch
     else:

@@ -94,7 +94,7 @@ def generate_anml(chains, feature_table, value_map, anml_filename):
 	anml_net.ExportAnml(anml_filename)
 
 # Expect single filename (ANML) or two filenames (ANML, Element File)
-def compile_anml(anml, *filenames)
+def compile_anml(anml, *filenames):
 
 
 	if len(filenames) == 0:
