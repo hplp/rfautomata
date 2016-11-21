@@ -91,6 +91,10 @@ class FeatureTable(object):
 	def get_range(self, feature):
 		return self.feature_pointer_[feature]
 
+	# Return the STE that this feature is mapped to
+	def get_ste(self, feature):
+		return get_range(feature)[0]
+
 	# Return the tuple (ste, index) that represents the range in which the value is found
 	# This is currently implemented with a linear-time algorithm, but can be
 	# improved in the future
@@ -177,45 +181,3 @@ class FeatureTable(object):
 
 				else:
 					return
-
-
-# Main() for testing
-if __name__ == "__main__":
-
-	features = []
-	threshold_map = {}
-
-	for _i in range(100):
-
-		f = randint(1, 100)
-
-		if f in features:
-			continue
-
-		features.append(f)
-
-		# For each random feature, choose a random numer of random thresholds
-		thresholds = []
-
-		for _j in range(randint(50, 100)):
-
-			t = randint(1, 100)
-
-			if t in thresholds:
-				continue
-
-			thresholds.append(t)
-
-		threshold_map[f] = thresholds
-
-	features.sort()
-
-	for k, val in threshold_map.items():
-		val.sort()
-
-	ft = FeatureTable(features, threshold_map)
-
-	print ft
-	ft.compact()
-	print ft
-
