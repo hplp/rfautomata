@@ -27,30 +27,41 @@ def generate_anml(chains, feature_table, value_map, anml_filename):
 	report_symbol = r"\x%02X" % 255
 
 	# Iterate through all chains
+
 	for chain in chains:
 
 		# character class assignements for each STE start with '[' and end with ']'
 		character_classes = ['[' for _ste in range(feature_table.ste_count_)]
 
 		node_index = 0
+		feature_index = 0
 
-		for feature in feature_table.features_:
+		while True:
 
-			node = chain.nodes_[node_index]
+			# We're done
+			if feature_index == len(feature_table.features_):
+				break
+
+			# If we've gone through all of the nodes in the chain...
+			if node_index == len(chain.nodes_):
+				node = None
+			else:
+				node = chain.nodes_[node_index]
+			
+			feature = feature_table.features_[feature_index]
 
 			ste_index, start, end = feature_table.get_range(feature)
 
-			if node.feature_ == feature:
-
-				for c in chain.nodes_[node_index].character_set:
-					character_classes[ste_index] += r"\x%02X" % c
-				
-				node_index += 1
-
-			# Don't use this feature in our chain, accept all
-			else:
-				assert feature < node.feature_, "feature is NOT > node.feature_"
+			if (node is None) or (node.feature_ != feature):
 				character_classes[ste_index] += r"\x%02X-\x%02X" % (start, end)
+
+			else:
+				for c in node.character_set:
+					character_classes[ste_index] += r"\x%02X" % c
+
+				node_index += 1
+			
+			feature_index += 1
 
 
 		# End the character class
