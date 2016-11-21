@@ -64,9 +64,20 @@ class Node(object):
 		self.gt_ = gt
 
 	# Set the character set of the current node
-	def set_character_set(self, character_set):
-		for c in character_set:
-			self.character_set.append(c)
+	# Either pass in a list, or the min, max of the range
+	def set_character_set(self, *character_set):
+		# If we passed a list
+		if len(character_set) == 1:
+			for c in character_set[0]:
+				if c not in self.character_set:
+					self.character_set.append(c)
+
+		elif len(character_set) == 2:
+			for c in range(character_set[0], character_set[1] + 1):
+				if c not in self.character_set:
+					self.character_set.append(c)
+
+		self.character_set.sort()
 
 # Define Chain class
 class Chain(object):
@@ -121,7 +132,7 @@ class Chain(object):
 
 			# If they have the same feature, combine
 			if previous_node.feature_ == current_node.feature_:
-				previous_node.character_set += current_node.character_set
+				previous_node.set_character_set(current_node.character_set)
 				self.nodes_.remove(current_node)
 			else:
 				previous_index += 1
@@ -146,28 +157,3 @@ class Chain(object):
 			self.nodes_.append(node)
 
 			return 1
-
-
-# Main() for testing
-if __name__ == "__main__":
-	
-	C = Chain(0)
-
-	features = []
-
-	for _i in range(10):
-		f = randint(1, 100)
-		features.append(f)
-
-		#(feature, threshold, gt):
-		node = Node(f, 0.1*f, False)
-		C.add_node(node)
-
-	D = C.copy()
-
-	print(C)
-
-	node = Node(10, 0.1*10, True)
-	D.add_node(node)
-
-	print(D)
