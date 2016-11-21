@@ -1,0 +1,7 @@
+n_estimators: 1000model: GradientBoostingClassifier(criterion='friedman_mse', init=None,
+              learning_rate=0.1, loss='deviance', max_depth=8,
+              max_features=None, max_leaf_nodes=None,
+              min_impurity_split=1e-07, min_samples_leaf=1,
+              min_samples_split=2, min_weight_fraction_leaf=0.0,
+              n_estimators=1000, presort='auto', random_state=None,
+              subsample=1.0, verbose=0, warm_start=False)max_depth: 8accuracy: 0.558514580513

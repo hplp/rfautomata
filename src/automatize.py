@@ -22,7 +22,7 @@ import numpy as np
 # RF Automata Imports
 from chain import *
 from featureTable import *
-#from anmltools import *
+from anmltools import *
 
 # Turn on logging.
 logging.basicConfig(format='%(asctime)s : %(message)s', level=logging.INFO)
@@ -299,7 +299,7 @@ if __name__ == '__main__':
         f.close()
 
     # Generate ANML from the chains using the feature table
-    #generate_anml(chains, ft, value_map, options.anml)
+    generate_anml(chains, ft, value_map, options.anml)
 
     # If flag enabled, compile and dump into fsm file
     #if options.compile:
