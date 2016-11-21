@@ -22,10 +22,6 @@ import numpy as np
 # RF Automata Imports
 from chain import *
 from featureTable import *
-
-# SKLEARN inputs
-
-# Micron AP import
 #from anmltools import *
 
 # Turn on logging.
@@ -33,10 +29,25 @@ logging.basicConfig(format='%(asctime)s : %(message)s', level=logging.INFO)
  
 # Load the model from a file
 def load_model(modelfile):
+
+    logging.info("Loading model file from %s" % modelfile)
+
     f = open(modelfile, 'rb')
     model = pickle.load(f)
     f.close()
+
     return model
+
+# Load the chains, FT and value map from a file
+def load_cft_vm(cftFile):
+
+    logging.info("Loading Chains, FT, ValueMap file from %s" % cftFile)
+
+    f = open(cftFile, 'rb')
+    chains, ft, value_map = pickel.load(f)
+    f.close()
+
+    return chains, ft, value_map
 
 '''
     Attributes of an SKLEARN Tree -- returned by dir(tree)
@@ -50,11 +61,10 @@ def load_model(modelfile):
       'feature', 'impurity', 'max_depth', 'max_n_classes', 'n_classes', '
       n_features', 'n_node_samples', 'n_outputs', 'node_count', 'predict', 
       'threshold', 'value', 'weighted_n_node_samples']
-
 '''
 
 # Convert tree to chains
-def tree_to_chains(tree, tree_id, chains, features, threshold_map):
+def tree_to_chains(tree, tree_id, chains, features, threshold_map, values):
 
     # Root node attributes
     feature = tree.feature[0]
@@ -68,7 +78,6 @@ def tree_to_chains(tree, tree_id, chains, features, threshold_map):
         threshold_map[feature].append(threshold)
 
     # Because we're a root node, we dont care
-    value = None#np.argmax(tree.value[0])
     left = tree.children_left[0]
     right = tree.children_right[0]
 
@@ -77,14 +86,14 @@ def tree_to_chains(tree, tree_id, chains, features, threshold_map):
     node = Node(feature, threshold, False)
     left_chain.add_node(node)
         
-    chains += recurse(tree, left, left_chain, features, threshold_map)
+    chains += recurse(tree, left, left_chain, features, threshold_map, values)
 
     right_chain = Chain(tree_id)
                     # feature, threshold, value, leaf, gt)
     node = Node(feature, threshold, True)
     right_chain.add_node(node)
         
-    chains += recurse(tree, right, right_chain, features, threshold_map)
+    chains += recurse(tree, right, right_chain, features, threshold_map, values)
 
     # Because we built the chains from the left-most to the right-most leaf
     # We can simply assign chain ids sequentially over our list
@@ -99,7 +108,7 @@ def tree_to_chains(tree, tree_id, chains, features, threshold_map):
         val.sort()
 
 # Recursive function to convert trees into chains
-def recurse(tree, index, temp_chain, features, threshold_map):
+def recurse(tree, index, temp_chain, features, threshold_map, values):
 
     feature = tree.feature[index]
     threshold = tree.threshold[index]
@@ -110,6 +119,9 @@ def recurse(tree, index, temp_chain, features, threshold_map):
 
     # We're a leaf (also an end)
     if feature == -2:
+
+        if value not in values:
+            values.append(value)
 
         temp_chain.set_value(value)
         return [temp_chain]
@@ -124,23 +136,23 @@ def recurse(tree, index, temp_chain, features, threshold_map):
         elif threshold not in threshold_map[feature]:
             threshold_map[feature].append(threshold)
 
-                        # feature, threshold, value, leaf, gt)
+                    # feature, threshold, gt)
         node = Node(feature, threshold, False)
         temp_chain.add_node(node)
 
         right_copy = temp_chain.copy()
 
-        left_chains =  recurse(tree, left, temp_chain, features, threshold_map)
+        left_chains =  recurse(tree, left, temp_chain, features, threshold_map, values)
 
         # Flip the last node, we're going right (>)!
         right_copy.nodes_[-1].set_direction(True)
 
-        right_chains = recurse(tree, right, right_copy, features, threshold_map)
+        right_chains = recurse(tree, right, right_copy, features, threshold_map, values)
 
         return left_chains + right_chains
 
 # Set the character sets of each node in the chains
-def set_character_sets(chain, ft, threshold_map):
+def set_character_sets(chain, ft):
 
     # Iterate through all nodes, 
     for node in chain.nodes_:
@@ -156,16 +168,12 @@ def set_character_sets(chain, ft, threshold_map):
         # Grab STE labels associated with feature
         ste, start, end = ft.get_range(feature)
 
-        print "STE, START, END: ", ste, start, end
-        print "Threshold Ranges: ", threshold_map[feature]
-        print 'GR: ', gt
-
         # We're at a <= node
         if not gt:
 
             # Let's go
             labels = range(start, end + 1)
-            threshold_limits = threshold_map[feature] + [-1]
+            threshold_limits = ft.threshold_map_[feature] + [-1]
 
             assert len(labels) == len(threshold_limits), "len labels != len threshold_limits!"
 
@@ -191,7 +199,7 @@ def set_character_sets(chain, ft, threshold_map):
 
             # Let's do this
             labels = range(end, start - 1, -1)
-            threshold_limits = (threshold_map[feature] + [-1])[::-1]
+            threshold_limits = (ft.threshold_map_[feature] + [-1])[::-1]
 
             assert len(labels) == len(threshold_limits), "len labels != len threshold_limits!"
 
@@ -205,7 +213,6 @@ def set_character_sets(chain, ft, threshold_map):
                 else:
                     break
 
-        print "Assigned character set: ", character_set
         node.set_character_set(character_set)
 
 
@@ -217,45 +224,84 @@ if __name__ == '__main__':
     parser = OptionParser(usage)
     parser.add_option('-m', '--model', type='string', dest='model', help='Input SKLEARN model pickle file')
     parser.add_option('-a', '--anml', type='string', dest='anml', default='model.anml', help='ANML output filename')
+    parser.add_option('-c', '--compile', action='store_true', default=False, dest='compile', help='To compile or not to compile')
+    parser.add_option('-f', '--fsm', type='string', dest='fsm', help='FSM filename for compiling')
+    parser.add_option('--chain-ft-vm', type='string', dest='cftvm', help="Filename of chains and feature table pickle")
     parser.add_option('-v', '--verbose', action='store_true', default=False, dest='verbose', help='Verbose')
     options, args = parser.parse_args()
 
-    # Load the model file
-    if options.model is not None:
-        model = load_model(options.model)
+    # This allows us to test the ANML code faster
+    if options.cftvm is not None:
+        chains, ft, value_map = load_cft_vm(options.cft)
+
+    # Otherwise, let's do this from scratch
     else:
-        raise ValueError("No valid model file; provide -m <model filename>")
-        exit(-1)
+        # Load the model file
+        if options.model is not None:
+            model = load_model(options.model)
+        else:
+            raise ValueError("No valid model file; provide -m <model filename>")
+            exit(-1)
 
-    # Grab the constituent trees
-    trees = [dtc.tree_ for dtc in model.estimators_]
+        # Grab the constituent trees
+        trees = [dtc.tree_ for dtc in model.estimators_]
 
-    # Convert all trees to chains
-    chains = []
+        # Convert all trees to chains
+        chains = []
 
-    # Keep track of all features used in the forest
-    features = []
+        # Keep track of all features used in the forest
+        features = []
 
-    # Keep track of features -> thresholds
-    threshold_map = {}
+        # Keep track of features -> thresholds
+        threshold_map = {}
 
-    # Iterate through all trees in the forest and keep track of chains, features, and thresholds
-    for tree_id, tree in enumerate(trees):
-        tree_to_chains(tree, tree_id, chains, features, threshold_map)
+        # Keep track of unique values
+        values = []
 
-    # Create ideal address spacing for all features and thresholds
-    ft = FeatureTable(features, threshold_map)
-    ft.compact()    # Run the compactor (NOT IDEAL, but good enough)
+        # Iterate through all trees in the forest and keep track of chains, features, and thresholds
+        
+        logging.info("Converting trees to chains")
 
-    # Set the character sets for each node in the chains
-    # Then sort and combine the states in the chains
-    for chain in chains:
-        set_character_sets(chain, ft, threshold_map)
-        chain.sort_and_combine()
-        print chain
+        for tree_id, tree in enumerate(trees):
+            tree_to_chains(tree, tree_id, chains, features, threshold_map, values)
 
-    print ft
+        # The value_map is used to give unique value ids to each value
+        values.sort()
+        value_map = {}
+
+        for _i, _value in enumerate(values):
+            value_map[_value] = _i + 1
+
+        logging.info("Building the Feature Table")
+
+        # Create ideal address spacing for all features and thresholds
+        ft = FeatureTable(features, threshold_map)
+
+        logging.info("Compacting the Feature Table")
+
+        ft.compact()    # Run the compactor (NOT IDEAL, but good enough)
 
 
+        logging.info("Sorting and combining the chains")
 
+        # Set the character sets for each node in the chains
+        # Then sort and combine the states in the chains
+        for chain in chains:
+            set_character_sets(chain, ft)
+            chain.sort_and_combine()
+        
+
+        logging.info("Dumping Chains, Feature Table and Value Map to pickle")
+
+        # Dump the chains and featureTable to a pickle file
+        f = open('chainsFeatureTableValueMap.pickle', 'wb')
+        pickle.dump((chains, ft, value_map), f)
+        f.close()
+
+    # Generate ANML from the chains using the feature table
+    #generate_anml(chains, ft, value_map, options.anml)
+
+    # If flag enabled, compile and dump into fsm file
+    #if options.compile:
+    #    compile_anml(compile_filename)
 
