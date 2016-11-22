@@ -7,9 +7,9 @@ This project is written in Python in the Object-Oriented style.
 
 The src/ directory contains the following executable files (with main()):
 
-# trainEnsemble.py : Train an ensemble machine learning model
+# trainEnsemble.py
 
-## The trainEnsemble program is responsible for training an SKLEARN ensemble machine learning model given a training/testing data set, depth and tree count. The output of this program includes a training score, an output model pickle file, and a report file containing the model's metrics.
+### The trainEnsemble program is responsible for training an SKLEARN ensemble machine learning model given a training/testing data set, depth and tree count. The output of this program includes a training score, an output model pickle file, and a report file containing the model's metrics.
 
 -t: Training data file in .npz format
 
@@ -41,9 +41,9 @@ The src/ directory contains the following executable files (with main()):
 
 -r: Name of the report file containing metrics
 
-# automatize.py : Convert the machine learning model into automata
+# automatize.py
 
-## The automatize program is responsible for converting an SKLEARN ensemble machine learning model into a representation that can be executed on the Automata Processor, ANML.
+### The automatize program is responsible for converting an SKLEARN ensemble machine learning model into a representation that can be executed on the Automata Processor, ANML.
 
 -m: Input SKLEARN model pickle file from trainEnsemble.py
 
@@ -53,6 +53,7 @@ The src/ directory contains the following executable files (with main()):
 
 -v: Verbosity flag
 
+# Citing This Code
 
 If you use this code for research purposes, please cite the below paper which introduces the contained algorithms.
 Citation:
