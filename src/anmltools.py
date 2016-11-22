@@ -65,26 +65,28 @@ def generate_anml(chains, feature_table, value_map, anml_filename):
 
 
 		# End the character class
-		for cc in character_classes:
-			cc += ']'
+		for i in range(len(character_classes)):
+			character_classes[i] += "]"
 
 		print "character_class:"
 		print character_classes
-
-		exit()
 
 		# stes for the current chain
 		stes = []
 
 		# Start the chain with an id that ends in :s
-		ste_id = "%dt:%dl:s" % (chain.tree_id, chain.chain_id_)
+		ste_id = "%dt_%dl_s" % (chain.tree_id_, chain.chain_id_)
 
 		# Have a start ste that matches on 255
 		start_ste = anml_net.AddSTE(report_symbol, AnmlDefs.ALL_INPUT, anmlId=ste_id, match=False)
 		stes.append(start_ste)
 
 		for ste_i in range(feature_table.ste_count_):
-			ste_id = "%dt:%dl:%ds" % (chain.tree_id, chain.chain_id_, ste_i)
+			ste_id = "%dt_%dl_%ds" % (chain.tree_id_, chain.chain_id_, ste_i)
+
+			print "Ste_i: ", ste_i
+			print "Character_classes: ", character_classes[ste_i]
+			print "ste_id: ", ste_id
 
 			ste = anml_net.AddSTE(character_classes[ste_i], AnmlDefs.NO_START, anmlId=ste_id, match=False)
 
@@ -92,15 +94,20 @@ def generate_anml(chains, feature_table, value_map, anml_filename):
 
 			stes.append(ste)
 
+		# This is our cycle; we're mapping from the last ste back to the 2nd (the first non-start one)
 		anml_net.AddAnmlEdge(stes[-1], stes[1], 0)
 
+
+		last_feature = feature_table.features_[-1]
+		ste_index_last, start, end = feature_table.get_range(last_feature)
+		
 		# Reporting STE
-		ste_id = '%dt:%dl:r' % (chain.tree_id, chain.chain_id)
-		report_code = value_map(chain.value_)
+		ste_id = "%dt_%dl_r" % (chain.tree_id_, chain.chain_id_)
+		report_code = value_map[chain.value_]
 
-		ste = anml_net.AddSTE(report_symbol, AnmlDefs.NO_START, anmlID=ste_id, ReportCode=report_code)
+		ste = anml_net.AddSTE(report_symbol, AnmlDefs.NO_START, anmlId=ste_id, reportCode=report_code)
 
-		anml_net.AddAnmlEdge()
+		anml_net.AddAnmlEdge(stes[ste_index_last], ste, 0)
 
 	anml_net.ExportAnml(anml_filename)
 
