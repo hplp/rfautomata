@@ -1,16 +1,18 @@
 # Random Forest Automata
 
-This is an open-source implementation of Random Forests as automata on Micron's Automata Processor. In short, this code trains a Random Forest with Scikit Learn, and transforms the resulting model into ANML, an XML-like representation of Nondeterministic Finite Automata (NFA) for the Automata Processor.
+This is an open-source implementation of Decision Tree-based (Random Forest, Boosted Regression Trees, Adaboost) machine learning models as Automata on Micron's Automata Processor (AP). This code trains a DT-based model with Scikit Learn (on the CPU), and transforms the resulting model into ANML, an XML-like representation of Nondeterministic Finite Automata (NFA) for the Automata Processor.
+
+For more about the Automata Processor, visit CAP's website: http://cap.virginia.edu/
 
 This project is written in Python in the Object-Oriented style.
 
 # The Data
 
-In order to use this code to train ensemble modes from your data, it is necessary to write an extractor for the raw data. Please see the following examples found in data/:
+In order to use this code to train ensemble modes from your data, it is necessary to write an extractor for the raw data. This file processes your raw data and converts it into Numpy X and y matrices. These are then stored in a Numpy Zip file (.npz) for more efficient processing. Please see the following examples found in data/:
 
-## ocrExtractor
+### ocrExtractor
 
-The ocrExtractor program extracts the pixels feature matrix (X) and classification vector (y) from normalized OCR data based on Rob Kassel's OCR work. The data can be obtained from:
+The ocrExtractor program extracts the pixel feature matrix (X) and classification vector (y) from normalized handwritten letter data based on Rob Kassel's OCR work. The data can be obtained from the following locations:
 
 https://github.com/adiyoss/StructED/tree/master/tutorials-code/ocr/data
 
@@ -26,7 +28,7 @@ http://ai.stanford.edu/~btaskar/ocr/
 
 # mslrExtractor
 
-The mslrExtractor program extracts the learn-to-rank feature matrix (X) and resulting rank score (y) from MSLR data. The data can be obtained from Microsoft's website.
+The mslrExtractor program extracts the learn-to-rank feature matrix (X) and resulting rank score vector (y) from the MSLR LETOR data. The data can be obtained from Microsoft's website.
 
 -i: Input MSLR data file
 
@@ -34,10 +36,11 @@ The mslrExtractor program extracts the learn-to-rank feature matrix (X) and resu
 
 -v: Verbosity flag
 
+# The Programs 
 
 The src/ directory contains the following executable files (with main()):
 
-# trainEnsemble.py
+### trainEnsemble.py
 
 The trainEnsemble program is responsible for training an SKLEARN ensemble machine learning model given a training/testing data set, depth and tree count. The output of this program includes a training score, an output model pickle file, and a report file containing the model's metrics.
 
@@ -71,7 +74,7 @@ The trainEnsemble program is responsible for training an SKLEARN ensemble machin
 
 -r: Name of the report file containing metrics
 
-# automatize.py
+### automatize.py
 
 The automatize program is responsible for converting an SKLEARN ensemble machine learning model into a representation that can be executed on the Automata Processor, ANML.
 
