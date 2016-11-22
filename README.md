@@ -26,7 +26,7 @@ http://ai.stanford.edu/~btaskar/ocr/
 
 --visualize: This flag will open a gui and show a random handwritten character for reference.
 
-# mslrExtractor
+### mslrExtractor
 
 The mslrExtractor program extracts the learn-to-rank feature matrix (X) and resulting rank score vector (y) from the MSLR LETOR data. The data can be obtained from Microsoft's website.
 
