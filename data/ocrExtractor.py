@@ -53,7 +53,7 @@ def visualize(X, y, rndm=True):
     plt.show()
 
 # Read from the ocr file
-def readOCR(filename):
+def readOCR(filename, verbose):
     y = np.empty((0, 1), np.uint)
     X = np.empty((0, ROWS * COLS), np.uint)
 
@@ -72,7 +72,7 @@ def readOCR(filename):
             y = np.vstack((y, np.array([character])))
             X = np.vstack((X, np.array([int(x) for x in pixels])))
 
-            if options.verbose:
+            if verbose:
                 print('%d / %d' % (i, LINES))
                 i = i + 1
     return X, y
@@ -80,8 +80,8 @@ def readOCR(filename):
 if __name__ == '__main__':
 
     # Parse Command Line Arguments
-    usage = '%prog [options][text]'
-    parser = OptionParser(usage)
+    usage = 'usage: %prog [options]'
+    parser = OptionParser(usage=usage)
     parser.add_option('-i', '--file-in', type='string', dest='infile', help='Input OCR data file')
     parser.add_option('-o', '--file-out', type='string', dest='outfile', help='Save resulting X and y to a file')
     parser.add_option('-v', '--verbose', action='store_true', default=False, dest='verbose', help='Verbose')
@@ -89,6 +89,7 @@ if __name__ == '__main__':
     options, args = parser.parse_args()
 
     if options.outfile is None:
+        print parser.usage
         raise ValueError("No valid OCR output file name specified; provide '-o'")
         exit(-1)
 
@@ -100,7 +101,7 @@ if __name__ == '__main__':
         raise ValueError("No valid OCR input file name specified; provide '-i")
         exit(-1)
 
-    X, y = readOCR(options.infile)
+    X, y = readOCR(options.infile, options.verbose)
 
     if options.verbose:
         logging.info('Done reading file')
