@@ -39,6 +39,18 @@ def readOCR(filename):
     y = npzfile['y']
     return X, y
 
+def writeSymbolFile(X, count, outfilename):
+
+    f = open(outfilename, 'wb')
+
+    for i in range(count):
+        for symbol in X[i]:
+            value = chr(int(symbol))
+            f.write(value)
+            print int(value),
+        print ""
+    f.close()
+
 
 # Visualize the data
 '''
@@ -64,6 +76,10 @@ if __name__ == '__main__':
 
     X, y = readOCR(datafilename)  # Read the OCR data, verbosely
 
+    print "X.shape: ", X.shape
+    print "y.shape: ", y.shape
+
+    writeSymbolFile(X, 10, "10_symbols_ocr.bin")
     # Just for kicks, display the first 100 images
-    for i in range(100):
-        visualize(X, y, i)
+    #for i in range(10):
+    #    visualize(X, y, i)
