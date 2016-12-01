@@ -1,5 +1,5 @@
 '''
-    The purpose of this program is to convert SKLEARN models into 
+    The purpose of this program is to convert SKLEARN models into
     an automata representation.
 
     For the time being let's only support Random Forests
@@ -26,7 +26,7 @@ from anmltools import *
 
 # Turn on logging.
 logging.basicConfig(format='%(asctime)s : %(message)s', level=logging.INFO)
- 
+
 # Load the model from a file
 def load_model(modelfile):
 
@@ -53,13 +53,13 @@ def load_cft_vm(cftFile):
     Attributes of an SKLEARN Tree -- returned by dir(tree)
 
     ['__class__', '__delattr__', '__doc__', '__format__',
-     '__getattribute__', '__getstate__', '__hash__', '__init__', 
-     '__new__', '__pyx_vtable__', '__reduce__', '__reduce_ex__', 
+     '__getattribute__', '__getstate__', '__hash__', '__init__',
+     '__new__', '__pyx_vtable__', '__reduce__', '__reduce_ex__',
      '__repr__', '__setattr__', '__setstate__', '__sizeof__', '__str__',
-      '__subclasshook__', 'apply', 'capacity', 'children_left', 
-      'children_right', 'compute_feature_importances', 'decision_path', 
+      '__subclasshook__', 'apply', 'capacity', 'children_left',
+      'children_right', 'compute_feature_importances', 'decision_path',
       'feature', 'impurity', 'max_depth', 'max_n_classes', 'n_classes', '
-      n_features', 'n_node_samples', 'n_outputs', 'node_count', 'predict', 
+      n_features', 'n_node_samples', 'n_outputs', 'node_count', 'predict',
       'threshold', 'value', 'weighted_n_node_samples']
 '''
 
@@ -70,10 +70,16 @@ def tree_to_chains(tree, tree_id, chains, features, threshold_map, values):
     feature = tree.feature[0]
     threshold = tree.threshold[0]
 
+    #print "Raw Tree Thresholds: ", tree.threshold
+    #print "Raw features: ", tree.feature
+    #print "Raw values: ", tree.value
+
     # Keeping track of features and associated thresholds for all trees
     if feature not in features:
         features.append(feature)
         threshold_map[feature] = [threshold]
+
+    # If the feature has already been seen, check to see if this is a unique threshold
     elif threshold not in threshold_map[feature]:
         threshold_map[feature].append(threshold)
 
@@ -83,16 +89,16 @@ def tree_to_chains(tree, tree_id, chains, features, threshold_map, values):
 
     left_chain = Chain(tree_id)
                     # feature, threshold, value, leaf, gt)
-    node = Node(feature, threshold, False)
+    node = Node(feature, threshold, False) # This is the root node -> left decision
     left_chain.add_node(node)
-        
+
     chains += recurse(tree, left, left_chain, features, threshold_map, values)
 
     right_chain = Chain(tree_id)
                     # feature, threshold, value, leaf, gt)
-    node = Node(feature, threshold, True)
+    node = Node(feature, threshold, True) # This is the root node -> right decision
     right_chain.add_node(node)
-        
+
     chains += recurse(tree, right, right_chain, features, threshold_map, values)
 
     # Because we built the chains from the left-most to the right-most leaf
@@ -106,6 +112,16 @@ def tree_to_chains(tree, tree_id, chains, features, threshold_map, values):
     # Sort the thresholds for all features
     for k,val in threshold_map.items():
         val.sort()
+
+    # Ok, let's see what we've got
+    #print "Tree ID: ", tree_id
+    #print "Chains: ", [str(chain) for chain in chains]
+    #print "Features: ", features
+    #print "threshold_map: ", threshold_map
+    #print "values: ", values
+
+    # Ok we're done here
+    return
 
 # Recursive function to convert trees into chains
 def recurse(tree, index, temp_chain, features, threshold_map, values):
@@ -121,11 +137,12 @@ def recurse(tree, index, temp_chain, features, threshold_map, values):
     if feature == -2:
 
         if value not in values:
-            values.append(value)
+            values.append(value)    # We have a new leaf up in here!
 
-        temp_chain.set_value(value)
-        return [temp_chain]
+        temp_chain.set_value(value) # Set the value of the chain
+        return [temp_chain]         # This return it as a single value list
 
+    # If we're not a leaf, we got children!
     else:                           # We can do this because all trees with children have both
 
         # Keeping track of features and associated thresholds
@@ -144,7 +161,7 @@ def recurse(tree, index, temp_chain, features, threshold_map, values):
 
         left_chains =  recurse(tree, left, temp_chain, features, threshold_map, values)
 
-        # Flip the last node, we're going right (>)!
+        # Flip the last node, we're going right (>); otherwise the node is identical
         right_copy.nodes_[-1].set_direction(True)
 
         right_chains = recurse(tree, right, right_copy, features, threshold_map, values)
@@ -154,7 +171,7 @@ def recurse(tree, index, temp_chain, features, threshold_map, values):
 # Set the character sets of each node in the chains
 def set_character_sets(chain, ft):
 
-    # Iterate through all nodes, 
+    # Iterate through all nodes,
     for node in chain.nodes_:
 
         # Let us build a character set list
@@ -204,7 +221,7 @@ def set_character_sets(chain, ft):
             assert len(labels) == len(threshold_limits), "len labels != len threshold_limits!"
 
             for label, threshold_limit in zip(labels, threshold_limits):
-                
+
                 if threshold_limit == -1:
                     character_set.append(label)
 
@@ -243,8 +260,12 @@ if __name__ == '__main__':
             raise ValueError("No valid model file; provide -m <model filename>")
             exit(-1)
 
+        classes = model.classes_
+
         # Grab the constituent trees
         trees = [dtc.tree_ for dtc in model.estimators_]
+
+        logging.info("Grabbed %d constituent trees to be 'chained'" %len(trees))
 
         # Convert all trees to chains
         chains = []
@@ -259,18 +280,20 @@ if __name__ == '__main__':
         values = []
 
         # Iterate through all trees in the forest and keep track of chains, features, and thresholds
-        
         logging.info("Converting trees to chains")
 
         for tree_id, tree in enumerate(trees):
+            #  tree, tree index, list of chains, list of features, threshold map dictionary, values
             tree_to_chains(tree, tree_id, chains, features, threshold_map, values)
 
         # The value_map is used to give unique value ids to each value
         values.sort()
         value_map = {}
 
+        # We're going to map chain values to classes with an offset of 1, because
+        # we can't have a report code of 0 (workaround)
         for _i, _value in enumerate(values):
-            value_map[_value] = _i + 1
+            value_map[_value+1] = classes[_value]#_i + 1
 
         logging.info("Building the Feature Table")
 
@@ -281,7 +304,6 @@ if __name__ == '__main__':
 
         ft.compact()    # Run the compactor (NOT IDEAL, but good enough)
 
-
         logging.info("Sorting and combining the chains")
 
         # Set the character sets for each node in the chains
@@ -289,7 +311,6 @@ if __name__ == '__main__':
         for chain in chains:
             set_character_sets(chain, ft)
             chain.sort_and_combine()
-        
 
         logging.info("Dumping Chains, Feature Table and Value Map to pickle")
 
@@ -299,7 +320,7 @@ if __name__ == '__main__':
         f.close()
 
     # Generate ANML from the chains using the feature table
-    generate_anml(chains, ft, value_map, options.anml)
+    generate_anml(chains, ft, options.anml)
 
     # If flag enabled, compile and dump into fsm file
     #if options.compile:
