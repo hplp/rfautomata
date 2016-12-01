@@ -17,7 +17,7 @@
 from micronap.sdk import *
 
 # Generate ANML code for the provided chains
-def generate_anml(chains, feature_table, value_map, anml_filename):
+def generate_anml(chains, feature_table, anml_filename):
 
 	# Create an automata network
 	anml = Anml()
@@ -47,7 +47,7 @@ def generate_anml(chains, feature_table, value_map, anml_filename):
 				node = None
 			else:
 				node = chain.nodes_[node_index]
-			
+
 			feature = feature_table.features_[feature_index]
 
 			ste_index, start, end = feature_table.get_range(feature)
@@ -60,7 +60,7 @@ def generate_anml(chains, feature_table, value_map, anml_filename):
 					character_classes[ste_index] += r"\x%02X" % c
 
 				node_index += 1
-			
+
 			feature_index += 1
 
 
@@ -100,10 +100,12 @@ def generate_anml(chains, feature_table, value_map, anml_filename):
 
 		last_feature = feature_table.features_[-1]
 		ste_index_last, start, end = feature_table.get_range(last_feature)
-		
+
 		# Reporting STE
 		ste_id = "%dt_%dl_r" % (chain.tree_id_, chain.chain_id_)
-		report_code = value_map[chain.value_]
+
+		# Add the 1 offset to the value for now (workaround)
+		report_code = chain.value_ + 1#value_map[chain.value_]
 
 		ste = anml_net.AddSTE(report_symbol, AnmlDefs.NO_START, anmlId=ste_id, reportCode=report_code)
 
