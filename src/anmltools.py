@@ -40,7 +40,7 @@ def generate_anml(chains, feature_table, anml_filename):
 
 			# We're done
 			if feature_index == len(feature_table.features_):
-				break
+				break # We're done here, ya'll
 
 			# If we've gone through all of the nodes in the chain...
 			if node_index == len(chain.nodes_):
@@ -99,6 +99,8 @@ def generate_anml(chains, feature_table, anml_filename):
 
 
 		last_feature = feature_table.features_[-1]
+
+		# We want the index of the last feature's STE, because that's who's going to break us out
 		ste_index_last, start, end = feature_table.get_range(last_feature)
 
 		# Reporting STE
@@ -109,7 +111,8 @@ def generate_anml(chains, feature_table, anml_filename):
 
 		ste = anml_net.AddSTE(report_symbol, AnmlDefs.NO_START, anmlId=ste_id, reportCode=report_code)
 
-		anml_net.AddAnmlEdge(stes[ste_index_last], ste, 0)
+		# Need to add 1 to the index, because the first STE is the starting STE
+		anml_net.AddAnmlEdge(stes[ste_index_last + 1], ste, 0)
 
 	anml_net.ExportAnml(anml_filename)
 
