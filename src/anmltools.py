@@ -68,8 +68,8 @@ def generate_anml(chains, feature_table, anml_filename, reverse_value_map=None):
 		for i in range(len(character_classes)):
 			character_classes[i] += "]"
 
-		print "character_class:"
-		print character_classes
+		#print "character_class:"
+		#print character_classes
 
 		# stes for the current chain
 		stes = []
