@@ -23,7 +23,7 @@ import numpy as np
 # RF Automata Imports
 from chain import *
 from featureTable import *
-#from anmltools import *
+from anmltools import *
 
 # Turn on logging.
 logging.basicConfig(format='%(asctime)s : %(message)s', level=logging.INFO)
