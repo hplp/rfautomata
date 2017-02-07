@@ -2,7 +2,7 @@
     This objected-oriented module defines a feature lookup table class
 
     This lookup table has two main purposes:
-    1. We use the address spaces to efficiently fit all features into 
+    1. We use the address spaces to efficiently fit all features into
     	as few STEs as possible.
     2. We use the resulting lookup table to map feature values to feature
     	labels.
@@ -19,6 +19,7 @@
 import copy
 from termcolor import colored
 from random import *
+import math
 
 # Define FeatureTable class
 class FeatureTable(object):
@@ -31,7 +32,8 @@ class FeatureTable(object):
 		# List of address spaces
 		self.stes_ = []
 
-		# Number of STES requires (post compact())
+		# Number of STES requires
+		# Start with 1, then calculate correct number (post compact())
 		self.ste_count_ = 1
 
 		# A list of all features used
@@ -53,8 +55,9 @@ class FeatureTable(object):
 			end = start + len(thresholds)
 
 			# Update pointers with (STE, Start index, end index)
+			# This implies we are using only one STE (fine until we compact())
 			self.feature_pointer_[feature] = (0, start, end)
-			
+
 			# Concatenate thresholds to flat table
 			flat_table_ += thresholds
 
@@ -111,16 +114,79 @@ class FeatureTable(object):
 			else:
 				continue
 
-	# Fit all ranges of all features in the minimum number of STEs
-	def compact(self):
+	# More complex compaction algorithm that deals features with many splits
+	# Not looking to run a knapsack algorithm here
+	#* This needs to further developed *#
+	def compact2(self):
 
-		# This will set self.ste_count_
-		self.calculate_min_stes()
+		self.ste_count_ = 1
+
+		while True:
+
+			# Keep incrementing the STE count
+			self.ste_count_ += 1
+			ste_index = 0
+
+			# Zero the counters for the STEs
+			temp_counts = [0 for x in range(self.ste_count_)]
+
+			for feature in self.features_:
+
+				if ste_index == self.ste_count_:
+					ste_index = 0
+
+				two_stes = False
+
+				ste, start_index, end_index = self.get_range(feature)
+
+				print "feature:%d, start_index:%d, end_index:%d" % (feature, start_index, end_index)
+
+				range_size = (end_index - start_index) + 1
+
+				# If the range for a particular feature is too big,
+				# this compaction algorithm won't work
+				if range_size > 254:
+
+					# Break up this feature into multiple STEs
+					# This feature needs two states
+					if range_size > (254 ** 2):
+
+						# We have WAY too many splits for this feature
+						# To do: generalize it
+
+						return -1
+
+					# Ok, we'll handle this with two STEs
+					else:
+
+						range_size_msb = int(math.sqrt(range_size + 0.5))
+						range_size_lsb = range_size_msb
+
+						#OK, we need two STEs
+						temp_counts[ste_index] += range_size_msb
+
+						ste_index += 1
+
+						ste_index = 0 if ste_index == ste_count_ else ste_index
+
+						temp_counts[ste_index] += range_size_lsb
+
+				else:
+					temp_counts[ste_index(feature)] += range_size
+
+				ste_index += 1
+
+			if max(temp_counts) > 254:
+				continue
+
+			else:
+				break
 
 		print "Found minumum number of stes required to be: ", \
 			self.ste_count_
 
 		# Lambda expression for assigning ste_id based on feature
+		# This is also true for naive!
 		ste_index = lambda fid : fid % self.ste_count_
 
 		# Empty the stes to fill with feature threshold ranges
@@ -139,6 +205,62 @@ class FeatureTable(object):
 			self.stes_[ste_i] +=  thresholds
 			self.stes_[ste_i].append(-1)
 
+	# Fit all ranges of all features in the minimum number of STEs
+	def compact(self, naive=False):
+
+		# This will set self.ste_count_
+		if naive:
+
+			for feature in self.features_:
+
+				ste, start_index, end_index = self.get_range(feature)
+
+				if ((end_index - start_index) + 1) > 254:
+					print "Feature %d has too many splits! We don't support this yet" % feature
+					exit()
+
+			return_code = len(self.features_)
+
+			print "Assigning one STE to each feature; %d STEs for %d features" % \
+				(self.ste_count_, len(self.features_))
+
+		else:
+			return_code = self.calculate_min_stes()
+
+		# Naive compaction failed
+		if return_code == -1:
+			if self.compact2() == -1:
+				print "Sorry, we're railed"
+				exit()
+			else:
+				print "Compact2() worked!"
+				return 0
+
+		else:
+			self.ste_count_ = return_code
+
+			print "Found minumum number of stes required to be: ", \
+				self.ste_count_
+
+			# Lambda expression for assigning ste_id based on feature
+			ste_index = lambda fid : fid % self.ste_count_
+
+			# Empty the stes to fill with feature threshold ranges
+			self.stes_ = [[] for x in range(self.ste_count_)]
+
+			# Iterate over all features and fill STE namespaces
+			for feature_index,feature in enumerate(self.features_):
+
+				ste_i = ste_index(feature_index)
+				thresholds = self.threshold_map_[feature]
+
+				start = len(self.stes_[ste_i])
+				end = start + len(thresholds)
+
+				self.feature_pointer_[feature] = (ste_i, start, end)
+				self.stes_[ste_i] +=  thresholds
+				self.stes_[ste_i].append(-1)
+
 	'''
 		For simplicity, we're making the assumption that all features
 		have fewer than 254 thresholds; if this is not the case, this function
@@ -147,37 +269,46 @@ class FeatureTable(object):
 		We use an assert to catch features that are too large
 	'''
 
-	# Calculate min STE count to fit all features
+	# Calculate min STE count to fit all features; return number of stes needed
 	def calculate_min_stes(self):
 
+		# If max address space of all stes is <= 254 we good
+		# This assumes that we've pushed all of the address spaces into
+		# one STE to be split up into multiple
 		if max(len(ste) for ste in self.stes_) <= 254:
 			return 1
 
 		else:
+			ste_count_ = 1
 
 			# Lambda expression for assigning ste_id based on feature
-			ste_index = lambda fid : fid % self.ste_count_
+			ste_index = lambda fid, ste_count : fid % ste_count
 
 			while True:
 
 				# Keep incrementing the STE count
-				self.ste_count_ += 1
+				ste_count_ += 1
 
 				# Zero the counters for the STEs
-				temp_counts = [0 for x in range(self.ste_count_)]
+				temp_counts = [0 for x in range(ste_count_)]
 
 				for feature in self.features_:
 
 					ste, start_index, end_index = self.get_range(feature)
 
-					assert ((end_index - start_index) + 1) < 255, \
-						"Feature won't fit into an STE! (Not currently implemented)"
-
 					range_size = (end_index - start_index) + 1
-					temp_counts[ste_index(feature)] += range_size
+
+					print "feature:%d, start_index:%d, end_index:%d" % (feature, start_index, end_index)
+
+					# If the range for a particular feature is too big,
+					# this compaction algorithm won't work
+					if range_size > 254:
+						return -1
+
+					temp_counts[ste_index(feature, ste_count_)] += range_size
 
 				if max(temp_counts) > 254:
 					continue
 
 				else:
-					return
+					return ste_count_

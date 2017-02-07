@@ -17,7 +17,7 @@
 from micronap.sdk import *
 
 # Generate ANML code for the provided chains
-def generate_anml(chains, feature_table, anml_filename):
+def generate_anml(chains, feature_table, anml_filename, reverse_value_map=None):
 
 	# Create an automata network
 	anml = Anml()
@@ -27,7 +27,6 @@ def generate_anml(chains, feature_table, anml_filename):
 	report_symbol = r"\x%02X" % 255
 
 	# Iterate through all chains
-
 	for chain in chains:
 
 		# character class assignements for each STE start with '[' and end with ']'
@@ -56,6 +55,7 @@ def generate_anml(chains, feature_table, anml_filename):
 				character_classes[ste_index] += r"\x%02X-\x%02X" % (start, end)
 
 			else:
+				# Yes, this is probably not super efficient, but it'll do
 				for c in node.character_set:
 					character_classes[ste_index] += r"\x%02X" % c
 
@@ -107,7 +107,11 @@ def generate_anml(chains, feature_table, anml_filename):
 		ste_id = "%dt_%dl_r" % (chain.tree_id_, chain.chain_id_)
 
 		# Add the 1 offset to the value for now (workaround)
-		report_code = chain.value_ + 1#value_map[chain.value_]
+
+		if reverse_value_map is not None:
+			report_code = reverse_value_map[chain.value_] + 1
+		else:
+			report_code = chain.value_ + 1#value_map[chain.value_]
 
 		ste = anml_net.AddSTE(report_symbol, AnmlDefs.NO_START, anmlId=ste_id, reportCode=report_code)
 
@@ -118,7 +122,6 @@ def generate_anml(chains, feature_table, anml_filename):
 
 # Expect single filename (ANML) or two filenames (ANML, Element File)
 def compile_anml(anml, *filenames):
-
 
 	if len(filenames) == 0:
 		raise ValueError("Error: No filename[s] specified to compiler!")

@@ -83,12 +83,16 @@ class Node(object):
 class Chain(object):
 
 	# Chain constructor
-	def __init__(self, tree_id):
+	def __init__(self, tree_id, tree_weight=None):
 		self.nodes_ = []				# List of nodes
 		self.uid_ = 0					# Unique id for the current node
 		self.tree_id_ = tree_id
 		self.chain_id_ = None
 		self.value_ = None
+		self.chain_ = None
+
+		# This was added for boosted regression trees; not used for other models
+		self.tree_weight_ = None
 
 	# Deep copy of the Chain
 	def copy(self):

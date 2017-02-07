@@ -14,6 +14,7 @@
 
 
 # Utility Imports
+import sys
 from optparse import OptionParser
 import logging
 import pickle
@@ -22,21 +23,25 @@ import numpy as np
 # RF Automata Imports
 from chain import *
 from featureTable import *
-from anmltools import *
+#from anmltools import *
 
 # Turn on logging.
 logging.basicConfig(format='%(asctime)s : %(message)s', level=logging.INFO)
 
-# Load the model from a file
+# Load a sklearn model from a file
 def load_model(modelfile):
 
-    logging.info("Loading model file from %s" % modelfile)
-
-    f = open(modelfile, 'rb')
-    model = pickle.load(f)
-    f.close()
+    # Read the modelfile pickle
+    with open(modelfile, 'rb') as f:
+        model = pickle.load(f)
 
     return model
+
+def dump_cftvm(chains, ft, value_map, filename):
+
+    # Dump pickle file containing chains, ft, value_map
+    with open(filename, 'wb') as f:
+        pickle.dump((chains, ft, value_map), f)
 
 # Load the chains, FT and value map from a file
 def load_cft_vm(cftFile):
@@ -69,10 +74,6 @@ def tree_to_chains(tree, tree_id, chains, features, threshold_map, values):
     # Root node attributes
     feature = tree.feature[0]
     threshold = tree.threshold[0]
-
-    #print "Raw Tree Thresholds: ", tree.threshold
-    #print "Raw features: ", tree.feature
-    #print "Raw values: ", tree.value
 
     # Keeping track of features and associated thresholds for all trees
     if feature not in features:
@@ -112,13 +113,6 @@ def tree_to_chains(tree, tree_id, chains, features, threshold_map, values):
     # Sort the thresholds for all features
     for k,val in threshold_map.items():
         val.sort()
-
-    # Ok, let's see what we've got
-    #print "Tree ID: ", tree_id
-    #print "Chains: ", [str(chain) for chain in chains]
-    #print "Features: ", features
-    #print "threshold_map: ", threshold_map
-    #print "values: ", values
 
     # Ok we're done here
     return
@@ -244,6 +238,7 @@ if __name__ == '__main__':
     parser.add_option('-c', '--compile', action='store_true', default=False, dest='compile', help='To compile or not to compile')
     parser.add_option('-f', '--fsm', type='string', dest='fsm', help='FSM filename for compiling')
     parser.add_option('--chain-ft-vm', type='string', dest='cftvm', help="Filename of chains and feature table pickle")
+    parser.add_option('--spf', action='store_true', default=False, dest='spf', help='Use one STE per Feature')
     parser.add_option('-v', '--verbose', action='store_true', default=False, dest='verbose', help='Verbose')
     options, args = parser.parse_args()
 
@@ -255,6 +250,7 @@ if __name__ == '__main__':
     else:
         # Load the model file
         if options.model is not None:
+            logging.info("Loading model file from %s" % options.model)
             model = load_model(options.model)
         else:
             raise ValueError("No valid model file; provide -m <model filename>")
@@ -286,6 +282,8 @@ if __name__ == '__main__':
             #  tree, tree index, list of chains, list of features, threshold map dictionary, values
             tree_to_chains(tree, tree_id, chains, features, threshold_map, values)
 
+        logging.info("Done; now sorting")
+
         # The value_map is used to give unique value ids to each value
         values.sort()
         value_map = {}
@@ -302,7 +300,7 @@ if __name__ == '__main__':
 
         logging.info("Compacting the Feature Table")
 
-        ft.compact()    # Run the compactor (NOT IDEAL, but good enough)
+        ft.compact(naive=options.spf)    # Run the compactor (NOT IDEAL, but good enough)
 
         logging.info("Sorting and combining the chains")
 
@@ -312,14 +310,13 @@ if __name__ == '__main__':
             set_character_sets(chain, ft)
             chain.sort_and_combine()
 
-        logging.info("Dumping Chains, Feature Table and Value Map to pickle")
+        #logging.info("Dumping Chains, Feature Table and Value Map to pickle")
 
-        # Dump the chains and featureTable to a pickle file
-        f = open('chainsFeatureTableValueMap.pickle', 'wb')
-        pickle.dump((chains, ft, value_map), f)
-        f.close()
+        #dump_cftvm(chains, ft, value_map, 'chainsFeatureTableValueMap.pickle')
 
+    logging.info("Generating ANML")
     # Generate ANML from the chains using the feature table
+
     generate_anml(chains, ft, options.anml)
 
     # If flag enabled, compile and dump into fsm file
