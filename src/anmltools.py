@@ -17,7 +17,7 @@
 from micronap.sdk import *
 
 # Generate ANML code for the provided chains
-def generate_anml(chains, feature_table, anml_filename, reverse_value_map=None):
+def generate_anml(chains, feature_table, anml_filename, reverse_value_map=None, naive=False):
 
 	# Create an automata network
 	anml = Anml()
@@ -95,8 +95,9 @@ def generate_anml(chains, feature_table, anml_filename, reverse_value_map=None):
 			stes.append(ste)
 
 		# This is our cycle; we're mapping from the last ste back to the 2nd (the first non-start one)
-		anml_net.AddAnmlEdge(stes[-1], stes[1], 0)
-
+		# If we're naive, don't loop back; we're in the final state
+		if not naive:
+			anml_net.AddAnmlEdge(stes[-1], stes[1], 0)
 
 		last_feature = feature_table.features_[-1]
 
