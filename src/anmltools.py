@@ -84,9 +84,9 @@ def generate_anml(chains, feature_table, anml_filename, reverse_value_map=None):
 		for ste_i in range(feature_table.ste_count_):
 			ste_id = "%dt_%dl_%ds" % (chain.tree_id_, chain.chain_id_, ste_i)
 
-			print "Ste_i: ", ste_i
-			print "Character_classes: ", character_classes[ste_i]
-			print "ste_id: ", ste_id
+			#print "Ste_i: ", ste_i
+			#print "Character_classes: ", character_classes[ste_i]
+			#print "ste_id: ", ste_id
 
 			ste = anml_net.AddSTE(character_classes[ste_i], AnmlDefs.NO_START, anmlId=ste_id, match=False)
 
