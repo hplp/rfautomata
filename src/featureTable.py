@@ -1,18 +1,19 @@
 '''
     This objected-oriented module defines a feature lookup table class
 
-    This lookup table has two main purposes:
+    This lookup table has three main purposes:
     1. We use the address spaces to efficiently fit all features into
     	as few STEs as possible.
     2. We use the resulting lookup table to map feature values to feature
     	labels.
+    3. We use the lookup table to generate input files for the AP
     ----------------------
     Author: Tom Tracy II
     email: tjt7a@virginia.edu
     University of Virginia
     ----------------------
-    18 November 2016
-    Version 1.0
+    7 February 2017
+    Version 1.1
 '''
 
 # Utility imports
@@ -20,13 +21,15 @@ import copy
 from termcolor import colored
 from random import *
 import math
+from array import *
 
 # Define FeatureTable class
 class FeatureTable(object):
 
+	# Constructor creates one contiguous feature address space
 	def __init__(self, features, threshold_map):
 
-		# feature -> (STE, start, end)
+		# feature -> [(STE, start, end)]
 		self.feature_pointer_ = {}
 
 		# List of address spaces
@@ -45,21 +48,18 @@ class FeatureTable(object):
 		flat_table_ = []
 
 		# Iterate through all features
-		for feature in self.features_:
-
-			# Grab list of thresholds for the feature
-			thresholds = self.threshold_map_[feature]
+		for feature_, thresholds_ in self.threshold_map_.iteritems():
 
 			# Concatenate to end of current address space
 			start = len(flat_table_)
-			end = start + len(thresholds)
+			end = start + len(thresholds_)
 
 			# Update pointers with (STE, Start index, end index)
 			# This implies we are using only one STE (fine until we compact())
-			self.feature_pointer_[feature] = (0, start, end)
+			self.feature_pointer_[feature_] = [(0, start, end)]
 
 			# Concatenate thresholds to flat table
-			flat_table_ += thresholds
+			flat_table_ += thresholds_
 
 			# This is the end of the current feature
 			flat_table_.append(-1)
@@ -73,10 +73,12 @@ class FeatureTable(object):
 
 		# Enumerate all features and which STE its mapped to / what range
 		for i, feature in enumerate(self.features_):
-			ste, start, end = self.feature_pointer_[feature]
 			string += colored("F:%d", 'magenta') % feature
-			string += "STE:%d,S:%d,E:%d" % (ste, start, end)
-			string += (";") if i != (len(self.features_) - 1) else ("\n\n")
+
+			for ste, start, end in self.feature_pointer_[feature]:
+
+				string += "STE:%d,S:%d,E:%d" % (ste, start, end)
+				string += (";") if i != (len(self.features_) - 1) else ("\n\n")
 
 		# Enumerate all stes
 		for i, ste in enumerate(self.stes_):
@@ -91,28 +93,83 @@ class FeatureTable(object):
 		return string
 
 	# Return the range in the flat address space that corresponds to the start/end of a feature
-	def get_range(self, feature):
+	def get_ranges(self, feature):
+
 		return self.feature_pointer_[feature]
 
 	# Return the STE that this feature is mapped to
-	def get_ste(self, feature):
-		return get_range(feature)[0]
+	def get_stes(self, feature):
+
+		return [ste for ste, start, end in self.get_ranges(feature)]
 
 	# Return the tuple (ste, index) that represents the range in which the value is found
 	# This is currently implemented with a linear-time algorithm, but can be
 	# improved in the future
-	def get_symbol(self, feature, value):
+	def get_symbols(self, feature, value):
 
-		# Grab the ste and the range of addresses assigned to feature
-		ste, start, end = self.get_range(feature)
+		ranges = self.get_ranges(feature)
 
-		for i in range(start, end + 1):
+		return_list = []
 
-			threshold_value = self.stes_[ste][i]
-			if threshold_value == -1 or threshold_value >= value:
-				return (ste, i)
-			else:
-				continue
+		for ste, start, end in ranges:
+
+			for i in range(start, end + 1):
+
+				threshold_value = self.stes_[ste][i]
+
+				# If we're at the end of the ranges, or our value <= threshold value,
+				# append this label
+				if threshold_value == -1 or value <= threshold_value:
+
+					return_list.append((ste, i))
+					break
+
+				# We found a don't care
+				elif threshold_value == -2:
+
+					return_list.append((ste, i))
+
+				# If our value is still greater than the threshold_value, keep going
+				else:
+
+					continue
+
+		return return_list
+
+	# The purpose of function is to generate an input file from input (X)
+	def input_file(self, X, filename):
+
+		byte_counter = 0
+
+		with open(filename, 'wb') as f:
+
+			inputstring = array('B')
+			inputstring.append(255)
+
+			for row in X:
+
+				for f_i, f_v in enumerate(row):
+
+					if f_i in self.features_:
+
+						for ste, symbol in self.get_symbols(f_i, f_v):
+
+							assert symbol < 255
+
+							inputstring.append(symbol)
+
+							byte_counter += 1
+
+				print "Byte Counter: ", byte_counter, ", |Features|: ", len(self.features_)
+				assert(byte_counter == len(self.features_))
+				byte_counter = 0
+
+				inputstring.append(255)
+			f.write(inputstring.tostring())
+
+		# Return the number of bytes written to the input file
+		return len(inputstring.tostring())
+
 
 	# More complex compaction algorithm that deals features with many splits
 	# Not looking to run a knapsack algorithm here
@@ -257,7 +314,7 @@ class FeatureTable(object):
 				start = len(self.stes_[ste_i])
 				end = start + len(thresholds)
 
-				self.feature_pointer_[feature] = (ste_i, start, end)
+				self.feature_pointer_[feature] = [(ste_i, start, end)]
 				self.stes_[ste_i] +=  thresholds
 				self.stes_[ste_i].append(-1)
 
@@ -294,7 +351,7 @@ class FeatureTable(object):
 
 				for feature in self.features_:
 
-					ste, start_index, end_index = self.get_range(feature)
+					ste, start_index, end_index = self.get_ranges(feature)[0]
 
 					range_size = (end_index - start_index) + 1
 

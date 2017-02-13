@@ -8,10 +8,9 @@
     email: tjt7a@virginia.edu
     University of Virginia
     ----------------------
-    12 November 2016
-    Version 1.0
+    8 February 2017
+    Version 1.1
 '''
-
 
 # Utility Imports
 import sys
@@ -25,7 +24,7 @@ from chain import *
 from featureTable import *
 from anmltools import *
 
-# Turn on logging.
+# Turn on logging; let's see what all is going on
 logging.basicConfig(format='%(asctime)s : %(message)s', level=logging.INFO)
 
 # Load a sklearn model from a file
@@ -34,23 +33,31 @@ def load_model(modelfile):
     # Read the modelfile pickle
     with open(modelfile, 'rb') as f:
         model = pickle.load(f)
+    except:
+        print("ERROR: Can't load the model file!")
+        exit(-1)
 
     return model
 
+# Dump pickle file containing chains, ft, value_map
 def dump_cftvm(chains, ft, value_map, filename):
 
-    # Dump pickle file containing chains, ft, value_map
     with open(filename, 'wb') as f:
         pickle.dump((chains, ft, value_map), f)
+    except:
+        print("ERROR: Can't dump the CFTVM!")
+        exit(-1)
+
+    return 0
 
 # Load the chains, FT and value map from a file
 def load_cft_vm(cftFile):
 
-    logging.info("Loading Chains, FT, ValueMap file from %s" % cftFile)
-
-    f = open(cftFile, 'rb')
-    chains, ft, value_map = pickle.load(f)
-    f.close()
+    with open(cftFile, 'rb') as f:
+        chains, ft, value_map = pickle.load(f)
+    except:
+        print("ERROR: Can't read ", cftFile, "!")
+        exit(-1)
 
     return chains, ft, value_map
 
@@ -66,6 +73,18 @@ def load_cft_vm(cftFile):
       'feature', 'impurity', 'max_depth', 'max_n_classes', 'n_classes', '
       n_features', 'n_node_samples', 'n_outputs', 'node_count', 'predict',
       'threshold', 'value', 'weighted_n_node_samples']
+'''
+
+'''
+Definitions
+
+features: a list containing all of the features
+
+threshold_map: maps features to a list of all thresholds used for that feature
+    threshold_map[feature_index] = [list of all thresholds encountered in the ensemble]
+
+
+
 '''
 
 # Convert tree to chains
@@ -84,35 +103,47 @@ def tree_to_chains(tree, tree_id, chains, features, threshold_map, values):
     elif threshold not in threshold_map[feature]:
         threshold_map[feature].append(threshold)
 
-    # Because we're a root node, we dont care
+    # Let's grab references to our children nodes!
     left = tree.children_left[0]
     right = tree.children_right[0]
 
+    # Let's create a 'left' chain from the root and keep track of tree_id
     left_chain = Chain(tree_id)
-                    # feature, threshold, value, leaf, gt)
+
+                    # feature, threshold, gt
     node = Node(feature, threshold, False) # This is the root node -> left decision
     left_chain.add_node(node)
 
+    # We have our left chain; let's recurse!
     chains += recurse(tree, left, left_chain, features, threshold_map, values)
 
+    # Let's create a 'right' chain from the root and keep track of tree_id
     right_chain = Chain(tree_id)
-                    # feature, threshold, value, leaf, gt)
+
+                    # feature, threshold, gt
     node = Node(feature, threshold, True) # This is the root node -> right decision
     right_chain.add_node(node)
 
+    # We have our right chain; let's recurse!
     chains += recurse(tree, right, right_chain, features, threshold_map, values)
+
+    '''
+        The below code was moved to outside of this function because its
+        being computing multiple times for no reason
+
+    '''
 
     # Because we built the chains from the left-most to the right-most leaf
     # We can simply assign chain ids sequentially over our list
-    for chain_id, chain in enumerate(chains):
-        chain.set_chain_id(chain_id)
+    #for chain_id, chain in enumerate(chains):
+    #    chain.set_chain_id(chain_id)
 
     # Sort the features
-    features.sort()
+    #features.sort()
 
     # Sort the thresholds for all features
-    for k,val in threshold_map.items():
-        val.sort()
+    #for f,t in threshold_map.items():
+    #    t.sort()
 
     # Ok we're done here
     return
@@ -127,14 +158,15 @@ def recurse(tree, index, temp_chain, features, threshold_map, values):
     left = tree.children_left[index]
     right = tree.children_right[index]
 
-    # We're a leaf (also an end)
+    # We're a leaf; we're done here
     if feature == -2:
 
+        # Have we seen this leaf node value before?
         if value not in values:
             values.append(value)    # We have a new leaf up in here!
 
         temp_chain.set_value(value) # Set the value of the chain
-        return [temp_chain]         # This return it as a single value list
+        return [temp_chain]         # This returns the chain as a single value list
 
     # If we're not a leaf, we got children!
     else:                           # We can do this because all trees with children have both
@@ -147,18 +179,22 @@ def recurse(tree, index, temp_chain, features, threshold_map, values):
         elif threshold not in threshold_map[feature]:
             threshold_map[feature].append(threshold)
 
-                    # feature, threshold, gt)
-        node = Node(feature, threshold, False)
-        temp_chain.add_node(node)
+        # Let's go left, then right
+        left_chain = temp_chain
+        right_chain = left_chain.copy()
 
-        right_copy = temp_chain.copy()
+                    # feature, threshold, gt
+        node_l = Node(feature, threshold, False)
+        left_chain.add_node(node_l)
 
-        left_chains =  recurse(tree, left, temp_chain, features, threshold_map, values)
+        # Recurse left
+        left_chains =  recurse(tree, left, left_chain, features, threshold_map, values)
 
-        # Flip the last node, we're going right (>); otherwise the node is identical
-        right_copy.nodes_[-1].set_direction(True)
+        # Let's do the same for the right and recurse
+        node_r = Node(feature, threshold, True)
+        right_chain.add_node(node_r)
 
-        right_chains = recurse(tree, right, right_copy, features, threshold_map, values)
+        right_chains = recurse(tree, right, right_chain, features, threshold_map, values)
 
         return left_chains + right_chains
 
@@ -278,20 +314,38 @@ if __name__ == '__main__':
         # Iterate through all trees in the forest and keep track of chains, features, and thresholds
         logging.info("Converting trees to chains")
 
+        # Here is where we translate trees into chains; the containers are passed as references and populated
         for tree_id, tree in enumerate(trees):
             #  tree, tree index, list of chains, list of features, threshold map dictionary, values
             tree_to_chains(tree, tree_id, chains, features, threshold_map, values)
 
         logging.info("Done; now sorting")
 
+        # Because we built the chains from the left-most to the right-most leaf
+        # We can simply assign chain ids sequentially over our list
+        for chain_id, chain in enumerate(chains):
+            chain.set_chain_id(chain_id)
+
+        # Sort the features
+        features.sort()
+
+        # Sort the thresholds for all features
+        for f,t in threshold_map.items():
+            t.sort()
+
+        logging.info("Building the value/reverse-value maps")
+
         # The value_map is used to give unique value ids to each value
         values.sort()
         value_map = {}
+        reverse_value_map = {}
 
-        # We're going to map chain values to classes with an offset of 1, because
+        # We're going to map chain values to indexes with an offset of 1, because
         # we can't have a report code of 0 (workaround)
+        # We're also going to have a reverse map to quickly look up values
         for _i, _value in enumerate(values):
-            value_map[_value+1] = classes[_value]#_i + 1
+            value_map[_value] = classes[_i + 1]
+            reverse_value_map[_i + 1] = _value
 
         logging.info("Building the Feature Table")
 
@@ -310,16 +364,16 @@ if __name__ == '__main__':
             set_character_sets(chain, ft)
             chain.sort_and_combine()
 
-        #logging.info("Dumping Chains, Feature Table and Value Map to pickle")
+        logging.info("Dumping Chains, Feature Table and Value Map to pickle")
 
-        #dump_cftvm(chains, ft, value_map, 'chainsFeatureTableValueMap.pickle')
+        dump_cftvm(chains, ft, value_map, 'chainsFeatureTableValueMap.pickle')
 
     logging.info("Generating ANML")
     # Generate ANML from the chains using the feature table
 
-    generate_anml(chains, ft, options.anml)
+    generate_anml(chains, ft, options.anml, naive=options.spf)
 
     # If flag enabled, compile and dump into fsm file
-    #if options.compile:
-    #    compile_anml(compile_filename)
+    if options.compile:
+        compile_anml(compile_filename)
 
