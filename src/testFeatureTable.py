@@ -28,7 +28,7 @@ class TestFeatureTable(unittest.TestCase):
 		self.threshold_map = {}
 
 		for _i in range(100):
-			f = randint(0, 100)
+			f = randint(0, 99)
 
 			if f in self.features:
 				continue
@@ -37,8 +37,8 @@ class TestFeatureTable(unittest.TestCase):
 
 			thresholds = []
 
-			for _j in range(randint(50, 100)):
-				t = randint(1, 100)
+			for _j in range(randint(50, 99)):
+				t = randint(1, 99)
 
 				if t in thresholds:
 					continue
@@ -162,12 +162,9 @@ class TestFeatureTable(unittest.TestCase):
 			# Iterate through remaining list of ints
 			for input in ord_data[1:]:
 
-				print input,"-",
 
 				if input == 255:
 
-					print len(tmp), len(self.ft.features_)
-					print tmp
 					self.assertEqual(len(tmp), len(self.ft.features_))
 
 					tmp = []

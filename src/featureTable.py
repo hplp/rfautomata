@@ -1,12 +1,12 @@
 '''
-    This objected-oriented module defines a feature lookup table class
+    This objected-oriented module defines a Feature Lookup Table class
 
     This lookup table has three main purposes:
     1. We use the address spaces to efficiently fit all features into
     	as few STEs as possible.
     2. We use the resulting lookup table to map feature values to feature
     	labels.
-    3. We use the lookup table to generate input files for the AP
+    3. We use the lookup table to generate input files for the AP.
     ----------------------
     Author: Tom Tracy II
     email: tjt7a@virginia.edu
@@ -32,11 +32,11 @@ class FeatureTable(object):
 		# feature -> [(STE, start, end)]
 		self.feature_pointer_ = {}
 
-		# List of address spaces
+		# List of address spaces by STE
 		self.stes_ = []
 
 		# Number of STES requires
-		# Start with 1, then calculate correct number (post compact())
+		# Start with 1, then calculate correct number (with compact())
 		self.ste_count_ = 1
 
 		# A list of all features used
@@ -92,32 +92,36 @@ class FeatureTable(object):
 
 		return string
 
-	# Return the range in the flat address space that corresponds to the start/end of a feature
+	# Return the ranges in the address space that corresponds to the start/end of a feature
 	def get_ranges(self, feature):
 
 		return self.feature_pointer_[feature]
 
-	# Return the STE that this feature is mapped to
+	# Return the STEs that this feature is mapped to
 	def get_stes(self, feature):
 
 		return [ste for ste, start, end in self.get_ranges(feature)]
 
-	# Return the tuple (ste, index) that represents the range in which the value is found
+	# Return list of tuples [(ste, index)] that represent ranges in which the value is found
 	# This is currently implemented with a linear-time algorithm, but can be
 	# improved in the future
 	def get_symbols(self, feature, value):
 
 		ranges = self.get_ranges(feature)
-
+		found_symbol = False
 		return_list = []
 
 		for ste, start, end in ranges:
 
 			for i in range(start, end + 1):
 
+				# If we already have a label, just tack on -2s
+				if found_symbol:
+					return_list.append((ste, end))
+
 				threshold_value = self.stes_[ste][i]
 
-				# If we're at the end of the ranges, or our value <= threshold value,
+				# If at end of ranges, or our value <= threshold value,
 				# append this label
 				if threshold_value == -1 or value <= threshold_value:
 
@@ -136,15 +140,16 @@ class FeatureTable(object):
 
 		return return_list
 
-	# The purpose of function is to generate an input file from input (X)
+	# This function generates an input file from an input X
 	def input_file(self, X, filename):
 
 		byte_counter = 0
+		feature_set = set()
 
 		with open(filename, 'wb') as f:
 
 			inputstring = array('B')
-			inputstring.append(255)
+			inputstring.append(255) #We always start with a /xff
 
 			for row in X:
 
@@ -154,15 +159,20 @@ class FeatureTable(object):
 
 						for ste, symbol in self.get_symbols(f_i, f_v):
 
-							assert symbol < 255
+							assert symbol < 255, "A symbol is >= 255!"
 
 							inputstring.append(symbol)
+							feature_set.add(f_i)
 
 							byte_counter += 1
 
-				print "Byte Counter: ", byte_counter, ", |Features|: ", len(self.features_)
-				assert(byte_counter == len(self.features_))
+				# Check for duplicates
+				assert len(self.features_) == len(set(self.features_)), "We have duplicate features"
+				assert len(feature_set) == len(self.features_), "Missing feature: %d" % set(self.features_).difference(feature_set)
+				# Checks if we have the correct number of bytes
+				assert byte_counter == len(self.features_), "We are writing the wrong number of bytes"
 				byte_counter = 0
+				feature_set.clear()
 
 				inputstring.append(255)
 			f.write(inputstring.tostring())
@@ -171,10 +181,10 @@ class FeatureTable(object):
 		return len(inputstring.tostring())
 
 
-	# More complex compaction algorithm that deals features with many splits
+	# Complex compaction that deals with features with many splits
 	# Not looking to run a knapsack algorithm here
-	#* This needs to further developed *#
-	def compact2(self):
+	#* This needs to be further developed *#
+	def compact2(self, MAX_RANGE_SIZE=150):
 
 		self.ste_count_ = 1
 
@@ -194,30 +204,17 @@ class FeatureTable(object):
 
 				two_stes = False
 
-				ste, start_index, end_index = self.get_range(feature)
+				for ste, start_index, end_index in self.get_ranges(feature):
 
-				print "feature:%d, start_index:%d, end_index:%d" % (feature, start_index, end_index)
-
-				range_size = (end_index - start_index) + 1
+					range_size = (end_index - start_index) + 1
 
 				# If the range for a particular feature is too big,
 				# this compaction algorithm won't work
-				if range_size > 254:
+					if range_size > MAX_RANGE_SIZE:
 
 					# Break up this feature into multiple STEs
-					# This feature needs two states
-					if range_size > (254 ** 2):
-
-						# We have WAY too many splits for this feature
-						# To do: generalize it
-
-						return -1
-
-					# Ok, we'll handle this with two STEs
-					else:
-
-						range_size_msb = int(math.sqrt(range_size + 0.5))
-						range_size_lsb = range_size_msb
+						# The max range size is a knob that needs to be turned
+						num_stes = range_size / MAX_RANGE_SIZE
 
 						#OK, we need two STEs
 						temp_counts[ste_index] += range_size_msb
@@ -278,8 +275,8 @@ class FeatureTable(object):
 
 			return_code = len(self.features_)
 
-			print "Assigning one STE to each feature; %d STEs for %d features" % \
-				(self.ste_count_, len(self.features_))
+			#print "Assigning one STE to each feature; %d STEs for %d features" % \
+			#	(self.ste_count_, len(self.features_))
 
 		else:
 			return_code = self.calculate_min_stes()
@@ -296,8 +293,8 @@ class FeatureTable(object):
 		else:
 			self.ste_count_ = return_code
 
-			print "Found minumum number of stes required to be: ", \
-				self.ste_count_
+			#print "Found minumum number of stes required to be: ", \
+				#self.ste_count_
 
 			# Lambda expression for assigning ste_id based on feature
 			ste_index = lambda fid : fid % self.ste_count_
@@ -338,7 +335,7 @@ class FeatureTable(object):
 		else:
 			ste_count_ = 1
 
-			# Lambda expression for assigning ste_id based on feature
+			# Lambda expression for assigning ste_id by feature
 			ste_index = lambda fid, ste_count : fid % ste_count
 
 			while True:
@@ -354,8 +351,6 @@ class FeatureTable(object):
 					ste, start_index, end_index = self.get_ranges(feature)[0]
 
 					range_size = (end_index - start_index) + 1
-
-					print "feature:%d, start_index:%d, end_index:%d" % (feature, start_index, end_index)
 
 					# If the range for a particular feature is too big,
 					# this compaction algorithm won't work
