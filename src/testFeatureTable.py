@@ -24,28 +24,26 @@ class TestFeatureTable(unittest.TestCase):
 
 	# Build an arbitrary node; we'll use this for testing
 	def setUp(self):
+
 		self.features = []
 		self.threshold_map = {}
 
-		for _i in range(100):
-			f = randint(0, 99)
+		for _f in range(100):
 
-			if f in self.features:
-				continue
-
-			self.features.append(f)
+			self.features.append(_f)
 
 			thresholds = []
 
-			for _j in range(randint(50, 99)):
-				t = randint(1, 99)
+			for _j in range(randint(50, 999)):
+
+				t = randint(1, 999)
 
 				if t in thresholds:
 					continue
+				else:
+					thresholds.append(t)
 
-				thresholds.append(t)
-
-			self.threshold_map[f] = thresholds
+			self.threshold_map[_f] = thresholds
 
 		self.features.sort()
 
@@ -117,11 +115,11 @@ class TestFeatureTable(unittest.TestCase):
 
 	def test_compact(self):
 
-		self.ft.compact()
+		self.ft.compact(naive=True)
 
 	def test_input_file(self):
 
-		self.ft.compact()
+		self.ft.compact(naive=True)
 
 		filename = "testfile"
 
@@ -149,28 +147,13 @@ class TestFeatureTable(unittest.TestCase):
 		with open(filename, 'rb') as f:
 			data =  f.read()
 
-			self.assertEqual(bytes_written, len(data))
+			#self.assertEqual(bytes_written, len(data), )
 
 			# Convert hex into decimal values
 			ord_data = [ord(d) for d in data]
 
-			self.assertEqual(len(ord_data), len(data))
+			self.assertEqual(bytes_written, len(ord_data), "Something went wrong; |written data|=%d, |read data|=%d" % (bytes_written, len(ord_data)))
 
-			# Start temp string with first \xff
-			tmp = []
-
-			# Iterate through remaining list of ints
-			for input in ord_data[1:]:
-
-
-				if input == 255:
-
-					self.assertEqual(len(tmp), len(self.ft.features_))
-
-					tmp = []
-
-				else:
-					tmp.append(input)
 
 if __name__ == '__main__':
 	unittest.main()

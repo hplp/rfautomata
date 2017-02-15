@@ -45,6 +45,9 @@ class FeatureTable(object):
 		# A dictionary from features -> list of thresholds
 		self.threshold_map_ = threshold_map
 
+		# Check to see if we've compacted this FT already
+		self.compact_ = False
+
 		flat_table_ = []
 
 		# Iterate through all features
@@ -117,6 +120,7 @@ class FeatureTable(object):
 
 				# If we already have a label, just tack on -2s
 				if found_symbol:
+					assert -2 == self.stes_[ste][end], "-2 != %d" % self.stes_[ste][end]
 					return_list.append((ste, end))
 
 				threshold_value = self.stes_[ste][i]
@@ -153,28 +157,33 @@ class FeatureTable(object):
 
 			for row in X:
 
+				# For each feature in the row
 				for f_i, f_v in enumerate(row):
 
+					assert len(row) == len(self.features_), "The row (%d) doesn't have enough features! (%d)" % (len(row), len(self.features_))
+
 					if f_i in self.features_:
+
+						feature_set.add(f_i)
 
 						for ste, symbol in self.get_symbols(f_i, f_v):
 
 							assert symbol < 255, "A symbol is >= 255!"
 
 							inputstring.append(symbol)
-							feature_set.add(f_i)
 
 							byte_counter += 1
 
 				# Check for duplicates
 				assert len(self.features_) == len(set(self.features_)), "We have duplicate features"
-				assert len(feature_set) == len(self.features_), "Missing feature: %d" % set(self.features_).difference(feature_set)
-				# Checks if we have the correct number of bytes
-				assert byte_counter == len(self.features_), "We are writing the wrong number of bytes"
+
+				assert len(feature_set) == len(self.features_), "Missing feature: %s" % str(set(self.features_).difference(feature_set))
+
 				byte_counter = 0
 				feature_set.clear()
 
 				inputstring.append(255)
+
 			f.write(inputstring.tostring())
 
 		# Return the number of bytes written to the input file
@@ -185,6 +194,10 @@ class FeatureTable(object):
 	# Not looking to run a knapsack algorithm here
 	#* This needs to be further developed *#
 	def compact2(self, MAX_RANGE_SIZE=150):
+
+		if self.compact_:
+			print "Already compact!"
+			return 0
 
 		self.ste_count_ = 1
 
@@ -221,7 +234,7 @@ class FeatureTable(object):
 
 						ste_index += 1
 
-						ste_index = 0 if ste_index == ste_count_ else ste_index
+						ste_index = 0 if ste_index == self.ste_count_ else ste_index
 
 						temp_counts[ste_index] += range_size_lsb
 
@@ -238,10 +251,6 @@ class FeatureTable(object):
 
 		print "Found minumum number of stes required to be: ", \
 			self.ste_count_
-
-		# Lambda expression for assigning ste_id based on feature
-		# This is also true for naive!
-		ste_index = lambda fid : fid % self.ste_count_
 
 		# Empty the stes to fill with feature threshold ranges
 		self.stes_ = [[] for x in range(self.ste_count_)]
@@ -262,58 +271,121 @@ class FeatureTable(object):
 	# Fit all ranges of all features in the minimum number of STEs
 	def compact(self, naive=False):
 
+		if self.compact_:
+			print "Already compacted"
+			return 0
+
 		# This will set self.ste_count_
 		if naive:
 
+			self.ste_count_ = 0
+			self.stes_ = []
+
 			for feature in self.features_:
 
-				ste, start_index, end_index = self.get_range(feature)
+				# Because we're not already compact, there will be one of these
+				ste, start_index, end_index = self.get_ranges(feature)[0]
 
-				if ((end_index - start_index) + 1) > 254:
-					print "Feature %d has too many splits! We don't support this yet" % feature
-					exit()
+				assert ste == 0, "STE is not 0!"
 
-			return_code = len(self.features_)
+				range_size = (end_index - start_index) + 1
 
-			#print "Assigning one STE to each feature; %d STEs for %d features" % \
-			#	(self.ste_count_, len(self.features_))
+				# If we can cram this feature into a single STE
+				if range_size < 255:
+
+					# Index of the next STE
+					ste_i = self.ste_count_
+
+					# Grab this feature's thresholds
+					thresholds = self.threshold_map_[feature]
+
+					# We're making a new STE
+					self.stes_.append([])
+					self.ste_count_ += 1
+
+					# The features start at 0
+					start = 0
+
+					# and end at |thresholds|
+					end = len(thresholds)
+
+					# Update FT members with (STE, START, END) tuple
+					self.feature_pointer_[feature] = [(ste_i, start, end)]
+
+					# Append the thresholds to the new STE
+					self.stes_[-1] += thresholds
+
+					# Finish off the thresholds with the > last token (-1)
+					self.stes_[-1].append(-1)
+
+				# If not
+				else:
+
+					ste_i = self.ste_count_
+					thresholds = self.threshold_map_[feature]
+
+					tuples = []
+
+					num_stes = int(math.ceil(len(thresholds) / 254))
+
+					for s in range(num_stes):
+
+						self.stes_.append([])
+
+						start = 0
+						end = 254 if s < (num_stes - 1) else (len(thresholds) % num_stes)
+
+						self.stes_[-1] += thresholds
+
+						if s == (num_stes - 1):
+							self.stes_[-1].append(-1)
+
+						# This is the don't care label
+						self.stes_[-1].append(-2)
+
+						tuples.append((ste_i + s, start, end))
+
+						self.ste_count_ += 1
+
+
+					self.feature_pointer_[feature] = tuples
 
 		else:
+
 			return_code = self.calculate_min_stes()
 
-		# Naive compaction failed
-		if return_code == -1:
-			if self.compact2() == -1:
-				print "Sorry, we're railed"
-				exit()
+			# Naive compaction failed
+			if return_code == -1:
+				if self.compact2() == -1:
+					print "Sorry, we're railed"
+					exit()
+				else:
+					print "Compact2() worked!"
+					return 0
+
 			else:
-				print "Compact2() worked!"
-				return 0
 
-		else:
-			self.ste_count_ = return_code
+				# Naive compaction worked; use the proposed STE count
+				self.ste_count_ = return_code
 
-			#print "Found minumum number of stes required to be: ", \
-				#self.ste_count_
+				# Lambda expression for assigning ste_id based on feature
+				ste_index = lambda fid : fid % self.ste_count_
 
-			# Lambda expression for assigning ste_id based on feature
-			ste_index = lambda fid : fid % self.ste_count_
+				# Empty the stes to fill with feature threshold ranges
+				self.stes_ = [[] for x in range(self.ste_count_)]
 
-			# Empty the stes to fill with feature threshold ranges
-			self.stes_ = [[] for x in range(self.ste_count_)]
+				# Iterate over all features and fill STE namespaces
+				for feature_index,feature in enumerate(self.features_):
 
-			# Iterate over all features and fill STE namespaces
-			for feature_index,feature in enumerate(self.features_):
+					ste_i = ste_index(feature_index)
+					thresholds = self.threshold_map_[feature]
 
-				ste_i = ste_index(feature_index)
-				thresholds = self.threshold_map_[feature]
+					start = len(self.stes_[ste_i])
+					end = start + len(thresholds)
 
-				start = len(self.stes_[ste_i])
-				end = start + len(thresholds)
-
-				self.feature_pointer_[feature] = [(ste_i, start, end)]
-				self.stes_[ste_i] +=  thresholds
-				self.stes_[ste_i].append(-1)
+					self.feature_pointer_[feature] = [(ste_i, start, end)]
+					self.stes_[ste_i] +=  thresholds
+					self.stes_[ste_i].append(-1)
 
 	'''
 		For simplicity, we're making the assumption that all features

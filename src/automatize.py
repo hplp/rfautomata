@@ -33,9 +33,6 @@ def load_model(modelfile):
     # Read the modelfile pickle
     with open(modelfile, 'rb') as f:
         model = pickle.load(f)
-    except:
-        print("ERROR: Can't load the model file!")
-        exit(-1)
 
     return model
 
@@ -44,9 +41,6 @@ def dump_cftvm(chains, ft, value_map, filename):
 
     with open(filename, 'wb') as f:
         pickle.dump((chains, ft, value_map), f)
-    except:
-        print("ERROR: Can't dump the CFTVM!")
-        exit(-1)
 
     return 0
 
@@ -55,9 +49,6 @@ def load_cft_vm(cftFile):
 
     with open(cftFile, 'rb') as f:
         chains, ft, value_map = pickle.load(f)
-    except:
-        print("ERROR: Can't read ", cftFile, "!")
-        exit(-1)
 
     return chains, ft, value_map
 
