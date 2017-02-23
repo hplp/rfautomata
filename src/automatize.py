@@ -22,7 +22,9 @@ import numpy as np
 # RF Automata Imports
 from chain import *
 from featureTable import *
-from anmltools import *
+from plot import *
+import quickrank as qr
+#from anmltools import *
 
 # Turn on logging; let's see what all is going on
 logging.basicConfig(format='%(asctime)s : %(message)s', level=logging.INFO)
@@ -33,6 +35,7 @@ def load_model(modelfile):
     # Read the modelfile pickle
     with open(modelfile, 'rb') as f:
         model = pickle.load(f)
+
 
     return model
 
@@ -98,43 +101,21 @@ def tree_to_chains(tree, tree_id, chains, features, threshold_map, values):
     left = tree.children_left[0]
     right = tree.children_right[0]
 
-    # Let's create a 'left' chain from the root and keep track of tree_id
+    # Let's create a 'left' chain from the root
     left_chain = Chain(tree_id)
+    root_node = Node(feature, threshold, False) # This is the root node -> left decision
+    left_chain.add_node(root_node)
 
-                    # feature, threshold, gt
-    node = Node(feature, threshold, False) # This is the root node -> left decision
-    left_chain.add_node(node)
+    # Let's create a 'right' chain from the root
+    right_chain = Chain(tree_id)
+    root_node = Node(feature, threshold, True) # This is the root node -> right decision
+    right_chain.add_node(root_node)
 
     # We have our left chain; let's recurse!
     chains += recurse(tree, left, left_chain, features, threshold_map, values)
 
-    # Let's create a 'right' chain from the root and keep track of tree_id
-    right_chain = Chain(tree_id)
-
-                    # feature, threshold, gt
-    node = Node(feature, threshold, True) # This is the root node -> right decision
-    right_chain.add_node(node)
-
     # We have our right chain; let's recurse!
     chains += recurse(tree, right, right_chain, features, threshold_map, values)
-
-    '''
-        The below code was moved to outside of this function because its
-        being computing multiple times for no reason
-
-    '''
-
-    # Because we built the chains from the left-most to the right-most leaf
-    # We can simply assign chain ids sequentially over our list
-    #for chain_id, chain in enumerate(chains):
-    #    chain.set_chain_id(chain_id)
-
-    # Sort the features
-    #features.sort()
-
-    # Sort the thresholds for all features
-    #for f,t in threshold_map.items():
-    #    t.sort()
 
     # Ok we're done here
     return
@@ -178,16 +159,12 @@ def recurse(tree, index, temp_chain, features, threshold_map, values):
         node_l = Node(feature, threshold, False)
         left_chain.add_node(node_l)
 
-        # Recurse left
-        left_chains =  recurse(tree, left, left_chain, features, threshold_map, values)
-
         # Let's do the same for the right and recurse
         node_r = Node(feature, threshold, True)
         right_chain.add_node(node_r)
 
-        right_chains = recurse(tree, right, right_chain, features, threshold_map, values)
-
-        return left_chains + right_chains
+        return recurse(tree, left, left_chain, features, threshold_map, values) + \
+            recurse(tree, right, right_chain, features, threshold_map, values)
 
 # Set the character sets of each node in the chains
 def set_character_sets(chain, ft):
@@ -257,6 +234,8 @@ def set_character_sets(chain, ft):
 # Main()
 if __name__ == '__main__':
 
+    quickrank = False
+
     # Parse Command Line Arguments
     usage = '%prog [options][text]'
     parser = OptionParser(usage)
@@ -278,15 +257,30 @@ if __name__ == '__main__':
         # Load the model file
         if options.model is not None:
             logging.info("Loading model file from %s" % options.model)
-            model = load_model(options.model)
+
+            # Grab the model
+            model = None
+
+            # Simple check if quickrank model
+            if 'xml' in options.model:
+
+                quickrank = True
+
+                model = qr.load_qr(options.model)
+
+                # Grab the constituent trees
+                trees = qr.grab_data(model)
+
+            # Else, its a scikit learn-type model
+            else:
+                model = load_model(options.model)
+
+                # Grab the constituent trees
+                trees = [dtc.tree_ for dtc in model.estimators_]
+
         else:
             raise ValueError("No valid model file; provide -m <model filename>")
             exit(-1)
-
-        classes = model.classes_
-
-        # Grab the constituent trees
-        trees = [dtc.tree_ for dtc in model.estimators_]
 
         logging.info("Grabbed %d constituent trees to be 'chained'" %len(trees))
 
@@ -305,10 +299,21 @@ if __name__ == '__main__':
         # Iterate through all trees in the forest and keep track of chains, features, and thresholds
         logging.info("Converting trees to chains")
 
-        # Here is where we translate trees into chains; the containers are passed as references and populated
-        for tree_id, tree in enumerate(trees):
-            #  tree, tree index, list of chains, list of features, threshold map dictionary, values
-            tree_to_chains(tree, tree_id, chains, features, threshold_map, values)
+        # To deal with quickrank, we need to parse the trees differently
+        if quickrank:
+
+            # Here is where we generate the chains from the trees
+            for tree_id, tree_weight, tree_split in trees:
+
+                qr.tree_to_chains(tree_id, tree_weight, tree_split, chains, features, threshold_map, values)
+
+        else:
+
+            classes = model.classes_
+
+            for tree_id, tree in enumerate(trees):
+
+                tree_to_chains(tree, tree_id, chains, features, threshold_map, values)
 
         logging.info("Done; now sorting")
 
@@ -328,6 +333,10 @@ if __name__ == '__main__':
 
         # The value_map is used to give unique value ids to each value
         values.sort()
+
+        plot_thresholds(threshold_map)
+        exit()
+
         value_map = {}
         reverse_value_map = {}
 
