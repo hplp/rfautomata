@@ -156,14 +156,17 @@ class Chain(object):
 
 	# Can't use a real generator here because then I cant pickle :(
 	def index_generator(self):
+
 		uid = self.uid_
 		self.uid_ += 1
 		return uid
 
 	# Add a node to the chain
 	def add_node(self, node):
+
 		if node in self.nodes_:
 			return -1
+
 		else:
 			index = self.index_generator()
 			self.nodes_.append(node)

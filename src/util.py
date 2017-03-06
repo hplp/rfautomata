@@ -203,7 +203,6 @@ def small_features(stes, feature_pointer, threshold_map, threshold_counts, BINSI
             print "Quiting prematurely"
             exit()
 
-
     # We'll start at the minimum possible number of STEs that could work out
     ste_count = int(math.ceil(float(reduce(lambda x, y: x + y, [x[1] for x in threshold_counts])) \
         / float(BINSIZE)))

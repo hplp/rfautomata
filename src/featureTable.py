@@ -28,7 +28,7 @@ import util
 class FeatureTable(object):
 
 	# Constructor creates one contiguous feature address space
-	def __init__(self, threshold_map):
+	def __init__(self, threshold_map, verbose=False):
 
 		# feature -> [(STE, start, end)]
 		self.feature_pointer_ = {}
@@ -51,6 +51,14 @@ class FeatureTable(object):
 		# Set the number of stes
 		self.ste_count_ = len(stes)
 
+
+		# Print out STE allocation stats
+		if verbose:
+			for _f in self.features_:
+				print "Feature: ", _f
+				print "Number of thresholds: ", len(self.threshold_map_[_f])
+				print "Number of stes assigned: ", len(self.feature_pointer_[_f])
+				print
 
 	# String representation of the STEs
 	def __str__(self):
@@ -92,77 +100,65 @@ class FeatureTable(object):
 	# improved in the future
 	def get_symbols(self, feature, value):
 
+		# This gives us stes and pointers into stes
 		ranges = self.get_ranges(feature)
 		found_symbol = False
 		return_list = []
 
+		# Go from the start to the end of the ste and check for a matching range
 		for ste, start, end in ranges:
 
-			for i in range(start, end + 1):
+			# If we've already found our range.. tack on a -2
+			if found_symbol:
+				assert -2 == self.stes_[ste][end-1], "-2 != %d" % self.stes_[ste][end-1]
+				return_list.append((ste, end-1))
 
-				# If we already have a label, just tack on -2s
-				if found_symbol:
-					assert -2 == self.stes_[ste][end], "-2 != %d" % self.stes_[ste][end]
-					return_list.append((ste, end))
+			else:
+				# Iterate from the start to the end of the thresholds assigned to this STE
+				for i in range(start, end):
 
-				threshold_value = self.stes_[ste][i]
+					threshold_value = self.stes_[ste][i]
 
-				# If at end of ranges, or our value <= threshold value,
-				# append this label
-				if threshold_value == -1 or value <= threshold_value:
+					# If at end of ranges, or our value <= threshold value,
+					# append this label
+					if threshold_value == -1 or value <= threshold_value:
 
-					return_list.append((ste, i))
-					break
+						found_symbol = True
+						return_list.append((ste, i))
+						break # we're done with this STE
 
-				# We found a don't care
-				elif threshold_value == -2:
+					# We found a don't care
+					elif threshold_value == -2:
 
-					return_list.append((ste, i))
+						return_list.append((ste, i))
 
-				# If our value is still greater than the threshold_value, keep going
-				else:
-
-					continue
+					# If our value is still greater than the threshold_value, keep going
+					else:
+						continue
 
 		return return_list
 
 	# This function generates an input file from an input X
 	def input_file(self, X, filename):
 
-		byte_counter = 0
-		feature_set = set()
-
+		# Open up the output file
 		with open(filename, 'wb') as f:
 
 			inputstring = array('B')
 			inputstring.append(255) #We always start with a /xff
 
+			# For each input row...
 			for row in X:
 
 				# For each feature in the row
 				for f_i, f_v in enumerate(row):
 
-					assert len(row) == len(self.features_), "The row (%d) doesn't have enough features! (%d)" % (len(row), len(self.features_))
-
+					# Check to see if we care about that feature; if not, chuck it
 					if f_i in self.features_:
-
-						feature_set.add(f_i)
 
 						for ste, symbol in self.get_symbols(f_i, f_v):
 
-							assert symbol < 255, "A symbol is >= 255!"
-
 							inputstring.append(symbol)
-
-							byte_counter += 1
-
-				# Check for duplicates
-				assert len(self.features_) == len(set(self.features_)), "We have duplicate features"
-
-				assert len(feature_set) == len(self.features_), "Missing feature: %s" % str(set(self.features_).difference(feature_set))
-
-				byte_counter = 0
-				feature_set.clear()
 
 				inputstring.append(255)
 
@@ -171,23 +167,3 @@ class FeatureTable(object):
 		# Return the number of bytes written to the input file
 		return len(inputstring.tostring())
 
-
-		# Iterate through all features
-		for feature_, thresholds_ in self.threshold_map_.iteritems():
-
-			# Concatenate to end of current address space
-			start = len(flat_table_)
-			end = start + len(thresholds_)
-
-			# Update pointers with (STE, Start index, end index)
-			# This implies we are using only one STE (fine until we compact())
-			self.feature_pointer_[feature_] = [(0, start, end)]
-
-			# Concatenate thresholds to flat table
-			flat_table_ += thresholds_
-
-			# This is the end of the current feature
-			flat_table_.append(-1)
-
-		# For constructor cram all feature ranges into one STE
-		self.stes_ = [flat_table_]

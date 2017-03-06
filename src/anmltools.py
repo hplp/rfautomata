@@ -14,14 +14,14 @@
     Version 1.0
 '''
 
-from micronap.sdk import *
+#from micronap.sdk import *
 
 # Generate ANML code for the provided chains
 def generate_anml(chains, feature_table, anml_filename, reverse_value_map=None, naive=False):
 
 	# Create an automata network
-	anml = Anml()
-	anml_net = anml.CreateAutomataNetwork()
+	#anml = Anml()
+	#anml_net = anml.CreateAutomataNetwork()
 
 	# This code is used to start and report
 	report_symbol = r"\x%02X" % 255
@@ -29,49 +29,60 @@ def generate_anml(chains, feature_table, anml_filename, reverse_value_map=None, 
 	# Iterate through all chains
 	for chain in chains:
 
+		print feature_table.features_
+		print chain
+
 		# character class assignements for each STE start with '[' and end with ']'
 		character_classes = ['[' for _ste in range(feature_table.ste_count_)]
 
-		node_index = 0
-		feature_index = 0
+		next_node_index = 0
+
+		for _f in feature_table.features_:
 
 
-		while True:
+			# If we're still pointing to a valid node ...
+			if next_node_index != len(chain.nodes_):
 
-			# We're done
-			if feature_index == len(feature_table.features_):
-				break # We're done here, ya'll
+				# Grab that next node
+				next_node = chain.nodes_[next_node_index]
 
-			# If we've gone through all of the nodes in the chain...
-			if node_index == len(chain.nodes_):
-				node = None
+				# If that node has the feature we're looking at...
+				if next_node.feature_ == _f:
+
+					# If we have multiple STEs assigned to this feature...
+					ste_index = 0
+
+					for _ste, _start, _end in feature_table.get_ranges(_f):
+
+						for c in next_node.character_sets[ste_index]:
+
+							character_classes[_ste] += r"\x%02X" % c
+
+						ste_index += 1
+
+					next_node_index += 1
+
+				# If the node does not have the feature we're looking for
+				else:
+
+					for _ste, _start, _end  in feature_table.get_ranges(_f):
+
+						character_classes[_ste] += r"\x%02X-\x%02X" % (_start, _end - 1)
+
+
+			#
 			else:
-				node = chain.nodes_[node_index]
 
-			feature = feature_table.features_[feature_index]
+				for _ste, _start, _end  in feature_table.get_ranges(_f):
 
-			ste_index, start, end = feature_table.get_range(feature)
+					character_classes[_ste] += r"\x%02X-\x%02X" % (_start, _end - 1)
 
-			if (node is None) or (node.feature_ != feature):
-				character_classes[ste_index] += r"\x%02X-\x%02X" % (start, end)
-
-			else:
-				# Yes, this is probably not super efficient, but it'll do
-				for c in node.character_set:
-					character_classes[ste_index] += r"\x%02X" % c
-
-				node_index += 1
-
-			feature_index += 1
-
-
-		# End the character class
+		# End the character classes with ']'
 		for i in range(len(character_classes)):
 			character_classes[i] += "]"
 
-		#print "character_class:"
-		#print character_classes
 
+		exit()
 		# stes for the current chain
 		stes = []
 
@@ -84,10 +95,6 @@ def generate_anml(chains, feature_table, anml_filename, reverse_value_map=None, 
 
 		for ste_i in range(feature_table.ste_count_):
 			ste_id = "%dt_%dl_%ds" % (chain.tree_id_, chain.chain_id_, ste_i)
-
-			#print "Ste_i: ", ste_i
-			#print "Character_classes: ", character_classes[ste_i]
-			#print "ste_id: ", ste_id
 
 			ste = anml_net.AddSTE(character_classes[ste_i], AnmlDefs.NO_START, anmlId=ste_id, match=False)
 

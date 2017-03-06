@@ -29,7 +29,7 @@ from chain import *
 from featureTable import *
 #import plot
 import quickrank as qr
-#from anmltools import *
+from anmltools import *
 
 # Turn on logging; let's see what all is going on
 logging.basicConfig(format='%(asctime)s : %(message)s', level=logging.INFO)
@@ -365,14 +365,16 @@ if __name__ == '__main__':
             set_character_sets(chain, ft)
             chain.sort_and_combine()
 
-        for ste in ft.stes_:
-            print ste
-
         logging.info("Dumping Chains, Feature Table and Value Map to pickle")
 
         dump_cftvm(chains, ft, value_map,reverse_value_map, 'chainsFeatureTableValueMap.pickle')
 
         logging.info("Done writing out files")
+
+        for _f in ft.features_:
+            print "%d: %s" % (_f, str(ft.get_stes(_f)))
+
+        exit()
 
     logging.info("Generating ANML")
 
