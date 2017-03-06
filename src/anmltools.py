@@ -35,6 +35,7 @@ def generate_anml(chains, feature_table, anml_filename, reverse_value_map=None, 
 		node_index = 0
 		feature_index = 0
 
+
 		while True:
 
 			# We're done

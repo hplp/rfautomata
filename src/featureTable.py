@@ -22,53 +22,35 @@ from termcolor import colored
 from random import *
 import math
 from array import *
+import util
 
 # Define FeatureTable class
 class FeatureTable(object):
 
 	# Constructor creates one contiguous feature address space
-	def __init__(self, features, threshold_map):
+	def __init__(self, threshold_map):
 
 		# feature -> [(STE, start, end)]
 		self.feature_pointer_ = {}
 
-		# List of address spaces by STE
-		self.stes_ = []
-
-		# Number of STES requires
-		# Start with 1, then calculate correct number (with compact())
-		self.ste_count_ = 1
-
 		# A list of all features used
-		self.features_ = features
+		self.features_ = threshold_map.keys()
 
 		# A dictionary from features -> list of thresholds
 		self.threshold_map_ = threshold_map
 
-		# Check to see if we've compacted this FT already
-		self.compact_ = False
+		# Find the minimum number of stes required to handle the features
+		feature_pointer, stes = util.compact(threshold_map)
 
-		flat_table_ = []
+		# Assign feature_pointer and stes
+		self.feature_pointer_ = feature_pointer
 
-		# Iterate through all features
-		for feature_, thresholds_ in self.threshold_map_.iteritems():
+		# List of address spaces by STE
+		self.stes_ = stes
 
-			# Concatenate to end of current address space
-			start = len(flat_table_)
-			end = start + len(thresholds_)
+		# Set the number of stes
+		self.ste_count_ = len(stes)
 
-			# Update pointers with (STE, Start index, end index)
-			# This implies we are using only one STE (fine until we compact())
-			self.feature_pointer_[feature_] = [(0, start, end)]
-
-			# Concatenate thresholds to flat table
-			flat_table_ += thresholds_
-
-			# This is the end of the current feature
-			flat_table_.append(-1)
-
-		# For constructor cram all feature ranges into one STE
-		self.stes_.append(flat_table_)
 
 	# String representation of the STEs
 	def __str__(self):
@@ -190,249 +172,22 @@ class FeatureTable(object):
 		return len(inputstring.tostring())
 
 
-	# Complex compaction that deals with features with many splits
-	# Not looking to run a knapsack algorithm here
-	#* This needs to be further developed *#
-	def compact2(self, MAX_RANGE_SIZE=150):
+		# Iterate through all features
+		for feature_, thresholds_ in self.threshold_map_.iteritems():
 
-		if self.compact_:
-			print "Already compact!"
-			return 0
+			# Concatenate to end of current address space
+			start = len(flat_table_)
+			end = start + len(thresholds_)
 
-		self.ste_count_ = 1
+			# Update pointers with (STE, Start index, end index)
+			# This implies we are using only one STE (fine until we compact())
+			self.feature_pointer_[feature_] = [(0, start, end)]
 
-		while True:
+			# Concatenate thresholds to flat table
+			flat_table_ += thresholds_
 
-			# Keep incrementing the STE count
-			self.ste_count_ += 1
-			ste_index = 0
+			# This is the end of the current feature
+			flat_table_.append(-1)
 
-			# Zero the counters for the STEs
-			temp_counts = [0 for x in range(self.ste_count_)]
-
-			for feature in self.features_:
-
-				if ste_index == self.ste_count_:
-					ste_index = 0
-
-				two_stes = False
-
-				for ste, start_index, end_index in self.get_ranges(feature):
-
-					range_size = (end_index - start_index) + 1
-
-				# If the range for a particular feature is too big,
-				# this compaction algorithm won't work
-					if range_size > MAX_RANGE_SIZE:
-
-					# Break up this feature into multiple STEs
-						# The max range size is a knob that needs to be turned
-						num_stes = range_size / MAX_RANGE_SIZE
-
-						#OK, we need two STEs
-						temp_counts[ste_index] += range_size_msb
-
-						ste_index += 1
-
-						ste_index = 0 if ste_index == self.ste_count_ else ste_index
-
-						temp_counts[ste_index] += range_size_lsb
-
-				else:
-					temp_counts[ste_index(feature)] += range_size
-
-				ste_index += 1
-
-			if max(temp_counts) > 254:
-				continue
-
-			else:
-				break
-
-		print "Found minumum number of stes required to be: ", \
-			self.ste_count_
-
-		# Empty the stes to fill with feature threshold ranges
-		self.stes_ = [[] for x in range(self.ste_count_)]
-
-		# Iterate over all features and fill STE namespaces
-		for feature_index,feature in enumerate(self.features_):
-
-			ste_i = ste_index(feature_index)
-			thresholds = self.threshold_map_[feature]
-
-			start = len(self.stes_[ste_i])
-			end = start + len(thresholds)
-
-			self.feature_pointer_[feature] = (ste_i, start, end)
-			self.stes_[ste_i] +=  thresholds
-			self.stes_[ste_i].append(-1)
-
-	# Fit all ranges of all features in the minimum number of STEs
-	def compact(self, naive=False):
-
-		if self.compact_:
-			print "Already compacted"
-			return 0
-
-		# This will set self.ste_count_
-		if naive:
-
-			self.ste_count_ = 0
-			self.stes_ = []
-
-			for feature in self.features_:
-
-				# Because we're not already compact, there will be one of these
-				ste, start_index, end_index = self.get_ranges(feature)[0]
-
-				assert ste == 0, "STE is not 0!"
-
-				range_size = (end_index - start_index) + 1
-
-				# If we can cram this feature into a single STE
-				if range_size < 255:
-
-					# Index of the next STE
-					ste_i = self.ste_count_
-
-					# Grab this feature's thresholds
-					thresholds = self.threshold_map_[feature]
-
-					# We're making a new STE
-					self.stes_.append([])
-					self.ste_count_ += 1
-
-					# The features start at 0
-					start = 0
-
-					# and end at |thresholds|
-					end = len(thresholds)
-
-					# Update FT members with (STE, START, END) tuple
-					self.feature_pointer_[feature] = [(ste_i, start, end)]
-
-					# Append the thresholds to the new STE
-					self.stes_[-1] += thresholds
-
-					# Finish off the thresholds with the > last token (-1)
-					self.stes_[-1].append(-1)
-
-				# If not
-				else:
-
-					ste_i = self.ste_count_
-					thresholds = self.threshold_map_[feature]
-
-					tuples = []
-
-					num_stes = int(math.ceil(len(thresholds) / 254))
-
-					for s in range(num_stes):
-
-						self.stes_.append([])
-
-						start = 0
-						end = 254 if s < (num_stes - 1) else (len(thresholds) % num_stes)
-
-						self.stes_[-1] += thresholds
-
-						if s == (num_stes - 1):
-							self.stes_[-1].append(-1)
-
-						# This is the don't care label
-						self.stes_[-1].append(-2)
-
-						tuples.append((ste_i + s, start, end))
-
-						self.ste_count_ += 1
-
-
-					self.feature_pointer_[feature] = tuples
-
-		else:
-
-			return_code = self.calculate_min_stes()
-
-			# Naive compaction failed
-			if return_code == -1:
-				if self.compact2() == -1:
-					print "Sorry, we're railed"
-					exit()
-				else:
-					print "Compact2() worked!"
-					return 0
-
-			else:
-
-				# Naive compaction worked; use the proposed STE count
-				self.ste_count_ = return_code
-
-				# Lambda expression for assigning ste_id based on feature
-				ste_index = lambda fid : fid % self.ste_count_
-
-				# Empty the stes to fill with feature threshold ranges
-				self.stes_ = [[] for x in range(self.ste_count_)]
-
-				# Iterate over all features and fill STE namespaces
-				for feature_index,feature in enumerate(self.features_):
-
-					ste_i = ste_index(feature_index)
-					thresholds = self.threshold_map_[feature]
-
-					start = len(self.stes_[ste_i])
-					end = start + len(thresholds)
-
-					self.feature_pointer_[feature] = [(ste_i, start, end)]
-					self.stes_[ste_i] +=  thresholds
-					self.stes_[ste_i].append(-1)
-
-	'''
-		For simplicity, we're making the assumption that all features
-		have fewer than 254 thresholds; if this is not the case, this function
-		and the compact() function need to be combined and extended.
-
-		We use an assert to catch features that are too large
-	'''
-
-	# Calculate min STE count to fit all features; return number of stes needed
-	def calculate_min_stes(self):
-
-		# If max address space of all stes is <= 254 we good
-		# This assumes that we've pushed all of the address spaces into
-		# one STE to be split up into multiple
-		if max(len(ste) for ste in self.stes_) <= 254:
-			return 1
-
-		else:
-			ste_count_ = 1
-
-			# Lambda expression for assigning ste_id by feature
-			ste_index = lambda fid, ste_count : fid % ste_count
-
-			while True:
-
-				# Keep incrementing the STE count
-				ste_count_ += 1
-
-				# Zero the counters for the STEs
-				temp_counts = [0 for x in range(ste_count_)]
-
-				for feature in self.features_:
-
-					ste, start_index, end_index = self.get_ranges(feature)[0]
-
-					range_size = (end_index - start_index) + 1
-
-					# If the range for a particular feature is too big,
-					# this compaction algorithm won't work
-					if range_size > 254:
-						return -1
-
-					temp_counts[ste_index(feature, ste_count_)] += range_size
-
-				if max(temp_counts) > 254:
-					continue
-
-				else:
-					return ste_count_
+		# For constructor cram all feature ranges into one STE
+		self.stes_ = [flat_table_]

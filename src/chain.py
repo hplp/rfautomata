@@ -27,7 +27,8 @@ class Node(object):
 		self.gt_ = gt 					# greater-than?; else less-than
 
 		# Automata-related stuff
-		self.character_set = []			# Start with an empty set
+		# We're going to need a character set per STE
+		self.character_sets = None		# Start with an empty set
 
 	# Deep copy of the Node
 	def copy(self):
@@ -42,7 +43,7 @@ class Node(object):
 		else:
 			string += "<="
 		string += "%s]" % str(self.threshold_)
-		string += "CharSet: %s\n" % str(self.character_set)
+		string += "CharSet: %s\n" % str(self.character_sets)
 		return string
 
 	# Define Node equivalence
@@ -63,21 +64,22 @@ class Node(object):
 	def set_direction(self, gt):
 		self.gt_ = gt
 
-	# Set the character set of the current node
-	# Either pass in a list, or the min, max of the range
-	def set_character_set(self, *character_set):
-		# If we passed a list
-		if len(character_set) == 1:
-			for c in character_set[0]:
-				if c not in self.character_set:
-					self.character_set.append(c)
+	# Set the character sets of the current node
+	def set_character_sets(self, character_sets):
 
-		elif len(character_set) == 2:
-			for c in range(character_set[0], character_set[1] + 1):
-				if c not in self.character_set:
-					self.character_set.append(c)
+		if self.character_sets == None:
+			self.character_sets = [[]] * len(character_sets)
+		else:
+			assert len(character_sets) == len(self.character_sets), \
+				"|character sets| do not match!"
 
-		self.character_set.sort()
+		# Add all chars from character_sets to self.character_sets
+		for c_s, chain_c_s in zip(character_sets, self.character_sets):
+			for c in c_s:
+				if c not in chain_c_s:
+					chain_c_s.append(c)
+
+		self.character_sets.sort()
 
 # Define Chain class
 class Chain(object):
@@ -115,7 +117,7 @@ class Chain(object):
 		self.value_ = value
 
 	# Sort the chain by feature value, then update ids and children
-	def sort_and_combine(self):
+	def sort_and_combine(self, verbose=False):
 
 		# Sort the nodes_ in the chain by feature value (increasing)
 		self.nodes_ = sorted(self.nodes_)
@@ -128,17 +130,23 @@ class Chain(object):
 		previous_index = 0
 		current_index = 1
 
-		assert len(self.nodes_[0].character_set) > 0, "Character sets not set!"
-
 		while True:
+
 			previous_node = self.nodes_[previous_index]
 			current_node = self.nodes_[current_index]
 
 			# If they have the same feature, combine
 			if previous_node.feature_ == current_node.feature_:
-				previous_node.set_character_set(current_node.character_set)
+
+				if verbose:
+					print "Found two nodes with the same feature: ", \
+						previous_node, " == ", current_node
+
+				previous_node.set_character_sets(current_node.character_set)
 				self.nodes_.remove(current_node)
+
 			else:
+
 				previous_index += 1
 				current_index += 1
 

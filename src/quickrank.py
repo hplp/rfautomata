@@ -21,7 +21,7 @@ import pickle
 from chain import *
 from featureTable import *
 import automatize
-from plot import *
+#from plot import *
 #from anmltools import *
 
 # Turn on logging.
@@ -79,7 +79,7 @@ def grab_data(xml, verbose=False):
     return tree_list
 
 # Convert tree to chains
-def tree_to_chains(tree_id, tree_weight, tree_split, chains, features, threshold_map, values):
+def tree_to_chains(tree_id, tree_weight, tree_split, chains, threshold_map, values):
 
     # Root node attributes
     feature = int(tree_split['feature'])
@@ -87,8 +87,7 @@ def tree_to_chains(tree_id, tree_weight, tree_split, chains, features, threshold
     split = tree_split['split']
 
     # Keeping track of features and associated thresholds for all trees
-    if feature not in features:
-        features.append(feature)
+    if feature not in threshold_map:
         threshold_map[feature] = [threshold]
 
     # If the feature has already been seen, check to see if this is a unique threshold
@@ -109,17 +108,17 @@ def tree_to_chains(tree_id, tree_weight, tree_split, chains, features, threshold
     root_node = Node(feature, threshold, True)
 
     # Recursively add chains to the list as we iterate left
-    chains += recurse(split[0], left_chain, features, threshold_map, values)
+    chains += recurse(split[0], left_chain, threshold_map, values)
 
     # Recursively add chains to the list as we iterate left
-    chains += recurse(split[1], right_chain, features, threshold_map, values)
+    chains += recurse(split[1], right_chain, threshold_map, values)
 
     # Ok, we're done here
     return
 
 
 # Recursive function to convert trees into chains
-def recurse(split, temp_chain, features, threshold_map, values):
+def recurse(split, temp_chain, threshold_map, values):
 
     # We're doing a depth-first traversal
     pos = split['@pos'] # 'right'/'left'
@@ -141,8 +140,7 @@ def recurse(split, temp_chain, features, threshold_map, values):
         next_split = split['split']
 
         # Keep track of features and associated thresholds
-        if feature not in features:
-            features.append(feature)
+        if feature not in threshold_map:
             threshold_map[feature] = [threshold]
 
         elif threshold not in threshold_map[feature]:
@@ -160,8 +158,8 @@ def recurse(split, temp_chain, features, threshold_map, values):
         node_r = Node(feature, threshold, True)
         right_chain.add_node(node_r)
 
-        return recurse(next_split[0], left_chain, features, threshold_map, values) +\
-            recurse(next_split[1], right_chain, features, threshold_map, values)
+        return recurse(next_split[0], left_chain, threshold_map, values) +\
+            recurse(next_split[1], right_chain, threshold_map, values)
 
 
 # Test the module by converting a quickrank xml file into a set of chains
@@ -215,7 +213,7 @@ if __name__ == '__main__':
     # The value_map is used to give unique value ids to each value
     values.sort()
 
-    plot_thresholds(threshold_map)
+    #plot_thresholds(threshold_map)
     exit()
 
     value_map = {}
@@ -228,7 +226,7 @@ if __name__ == '__main__':
     logging.info("Building the Feature Table")
 
     # Create ideal address spacing for all features and thresholds
-    ft = FeatureTable(features, threshold_map)
+    ft = FeatureTable(threshold_map)
 
     logging.info("Compacting the Feature Table")
 
