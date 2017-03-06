@@ -12,6 +12,7 @@
 import math
 from heapq import *
 import logging
+from collections import OrderedDict
 
 logging.basicConfig(format='%(asctime)s : %(message)s', level=logging.INFO)
 
@@ -33,7 +34,7 @@ def compact(threshold_map, priority='runtime', verbose=False):
     stes = []
 
     # Keep track of the [[ste, start, end]] of each feature
-    feature_pointer = {}
+    feature_pointer = OrderedDict()
 
     # Make (feature, len(thresholds)) tuples to be ordered by len(thresholds)
     # Sort tuples of (feature, threshold_count) by threshold_count from largest -> smallest

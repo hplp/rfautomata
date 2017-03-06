@@ -367,11 +367,11 @@ if __name__ == '__main__':
 
         logging.info("Dumping Chains, Feature Table and Value Map to pickle")
 
-        dump_cftvm(chains, ft, value_map,reverse_value_map, 'chainsFeatureTableValueMap.pickle')
+        #dump_cftvm(chains, ft, value_map,reverse_value_map, 'chainsFeatureTableValueMap.pickle')
 
-        logging.info("Done writing out files")
+        #logging.info("Done writing out files")
 
-        for _f in ft.features_:
+        for _f in ft.feature_pointer_:
             print "%d: %s" % (_f, str(ft.get_stes(_f)))
 
         exit()

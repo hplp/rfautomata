@@ -23,15 +23,13 @@ from random import *
 import math
 from array import *
 import util
+from collections import OrderedDict
 
 # Define FeatureTable class
 class FeatureTable(object):
 
 	# Constructor creates one contiguous feature address space
 	def __init__(self, threshold_map, verbose=False):
-
-		# feature -> [(STE, start, end)]
-		self.feature_pointer_ = {}
 
 		# A list of all features used
 		self.features_ = threshold_map.keys()
@@ -43,6 +41,7 @@ class FeatureTable(object):
 		feature_pointer, stes = util.compact(threshold_map)
 
 		# Assign feature_pointer and stes
+		# feature -> [(STE, start, end)]
 		self.feature_pointer_ = feature_pointer
 
 		# List of address spaces by STE
@@ -150,16 +149,17 @@ class FeatureTable(object):
 			# For each input row...
 			for row in X:
 
-				# For each feature in the row
-				for f_i, f_v in enumerate(row):
+				# Use the feature indexes as they were added to the feature_pointer ordered dict
+				for f_i in ft.feature_pointer_.keys():
 
-					# Check to see if we care about that feature; if not, chuck it
-					if f_i in self.features_:
+					# Get the corresponding feature value
+					f_v = X[f_i]
 
-						for ste, symbol in self.get_symbols(f_i, f_v):
+					for ste, symbol in self.get_symbols(f_i, f_v):
 
-							inputstring.append(symbol)
+						inputstring.append(symbol)
 
+				# We always finish each feature with a 255
 				inputstring.append(255)
 
 			f.write(inputstring.tostring())
