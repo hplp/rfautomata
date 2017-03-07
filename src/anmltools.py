@@ -125,7 +125,7 @@ def generate_anml(chains, feature_table, value_map, anml_filename, reverse_value
 		ste = anml_net.AddSTE(report_symbol, AnmlDefs.NO_START, anmlId=ste_id, reportCode=report_code)
 
 		# Need to add 1 to the index, because the first STE is the starting STE
-		anml_net.AddAnmlEdge(stes[end_loop + 1], ste, 0)
+		anml_net.AddAnmlEdge(stes[feature_table.end_loop_ + 1], ste, 0)
 
 	anml_net.ExportAnml(anml_filename)
 
