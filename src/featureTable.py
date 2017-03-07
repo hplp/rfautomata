@@ -28,7 +28,7 @@ import util
 class FeatureTable(object):
 
 	# Constructor creates one contiguous feature address space
-	def __init__(self, threshold_map, verbose=False):
+	def __init__(self, threshold_map, verbose=True):
 
 		# A list of all features used
 		self.features_ = threshold_map.keys()
@@ -51,14 +51,6 @@ class FeatureTable(object):
 
 		# Get loopy information
 		self.start_loop_, self.end_loop_, self.permutation_ = util.getordering(self)
-
-		# Print out STE allocation stats
-		if verbose:
-			for _f in self.features_:
-				print "Feature: ", _f
-				print "Number of thresholds: ", len(self.threshold_map_[_f])
-				print "Number of stes assigned: ", len(self.feature_pointer_[_f])
-				print
 
 	# String representation of the STEs
 	def __str__(self):

@@ -375,15 +375,11 @@ if __name__ == '__main__':
             set_character_sets(chain, ft)
             chain.sort_and_combine()
 
-        logging.info("Dumping Chains, Feature Table and Value Map to pickle")
+        #logging.info("Dumping Chains, Feature Table, Value Map and Reverse Value Map to pickle")
 
-        print util.getordering(ft)
+        #dump_cftvm(chains, ft, value_map,reverse_value_map, 'chains_ft_vm_rvm.pickle')
 
-        logging.info("Dumping Chains, Feature Table, Value Map and Reverse Value Map to pickle")
-
-        dump_cftvm(chains, ft, value_map,reverse_value_map, 'chains_ft_vm_rvm.pickle')
-
-        logging.info("Done writing out files")
+        #logging.info("Done writing out files")
 
     logging.info("Generating ANML")
 

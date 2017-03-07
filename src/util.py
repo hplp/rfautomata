@@ -44,7 +44,7 @@ def getordering(ft):
 
             # If we find a decrease in assigned features, we must've ended on the last STE
             elif len(ste) < iteration_count:
-                end_loop = _i
+                end_loop = _i - 1
                 break
 
     # If all of the 'loopy' bins are of the same size, the last bin ends the loop
@@ -57,6 +57,7 @@ def getordering(ft):
     # All STEs with a single feature (not part of the loop)
     for _i in range(0, start_loop):
 
+        assert len(stes[_i]) == 1, "Bad assumption about size of STE allocations"
         permutation.append(stes[_i].pop())
 
     index = start_loop
@@ -68,6 +69,9 @@ def getordering(ft):
             index = start_loop
         else:
             index += 1
+
+    for ste in stes:
+        assert len(ste) == 0, "Permutation generator failed"
 
     # Return the start and end of the loop
     return start_loop, end_loop, permutation
