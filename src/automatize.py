@@ -375,7 +375,7 @@ if __name__ == '__main__':
 
     logging.info("Generating ANML")
 
-    generate_anml(chains, ft, options.anml, naive=options.spf)
+    generate_anml(chains, ft, value_map, options.anml, naive=options.spf)
 
     # If flag enabled, compile and dump into fsm file
     #if options.compile:

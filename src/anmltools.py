@@ -14,15 +14,15 @@
     Version 1.0
 '''
 
-#from micronap.sdk import *
+from micronap.sdk import *
 import util
 
 # Generate ANML code for the provided chains
-def generate_anml(chains, feature_table, anml_filename, reverse_value_map=None, naive=False):
+def generate_anml(chains, feature_table, value_map, anml_filename, reverse_value_map=None, naive=False):
 
 	# Create an automata network
-	#anml = Anml()
-	#anml_net = anml.CreateAutomataNetwork()
+	anml = Anml()
+	anml_net = anml.CreateAutomataNetwork()
 
 	# This code is used to start and report
 	report_symbol = r"\x%02X" % 255
@@ -107,9 +107,6 @@ def generate_anml(chains, feature_table, anml_filename, reverse_value_map=None, 
 
 		# The last feature will be accepted from the end_loop ste (remember offset + 1)
 		last_feature = feature_table.features_[feature_table.end_loop_ + 1]
-
-		# We want the index of the last feature's STE, because that's who's going to break us out
-		ste_index_last, start, end = feature_table.get_range(last_feature)
 
 		# Reporting STE
 		ste_id = "%dt_%dl_r" % (chain.tree_id_, chain.chain_id_)
