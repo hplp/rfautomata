@@ -391,7 +391,7 @@ if __name__ == '__main__':
 
     logging.info("Dumping test file")
     X_test, y_test = load_test("testing_data.pickle")
-    ft.input_file(X_test, "input_file.bin")
+    ft.input_file(X_test[0:100], "input_file.bin")
 
     logging.info("Done!")
 

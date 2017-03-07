@@ -119,6 +119,9 @@ class FeatureTable(object):
 
 					threshold_value = self.stes_[ste][i]
 
+					print "value: ", value
+					print "threshold value: ", threshold_value
+
 					# If at end of ranges, or our value <= threshold value,
 					# append this label
 					if threshold_value == -1 or value <= threshold_value:
@@ -154,7 +157,7 @@ class FeatureTable(object):
 				for f_i in self.permutation_:
 
 					# Get the corresponding feature value
-					f_v = X[f_i]
+					f_v = row[f_i]
 
 					for ste, symbol in self.get_symbols(f_i, f_v):
 
