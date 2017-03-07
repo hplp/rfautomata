@@ -15,6 +15,7 @@
 '''
 
 #from micronap.sdk import *
+import util
 
 # Generate ANML code for the provided chains
 def generate_anml(chains, feature_table, anml_filename, reverse_value_map=None, naive=False):
@@ -54,8 +55,6 @@ def generate_anml(chains, feature_table, anml_filename, reverse_value_map=None, 
 
 							character_classes[_ste] += r"\x%02X" % c
 
-						ste_index += 1
-
 					next_node_index += 1
 
 				# If the node does not have the feature we're looking for
@@ -65,46 +64,49 @@ def generate_anml(chains, feature_table, anml_filename, reverse_value_map=None, 
 
 						character_classes[_ste] += r"\x%02X-\x%02X" % (_start, _end - 1)
 
-
-			#
+			# We're done with the available features in our chain
 			else:
 
 				for _ste, _start, _end  in feature_table.get_ranges(_f):
 
+					# Because this feature is not part of the chain, accept the full range
 					character_classes[_ste] += r"\x%02X-\x%02X" % (_start, _end - 1)
 
 		# End the character classes with ']'
 		for i in range(len(character_classes)):
 			character_classes[i] += "]"
 
-
-		exit()
 		# stes for the current chain
 		stes = []
 
-		# Start the chain with an id that ends in :s
+		# Start the chain with an id that ends in _s (for start)
 		ste_id = "%dt_%dl_s" % (chain.tree_id_, chain.chain_id_)
 
 		# Have a start ste that matches on 255
 		start_ste = anml_net.AddSTE(report_symbol, AnmlDefs.ALL_INPUT, anmlId=ste_id, match=False)
+
+		# stes[0] is the start ste that only accepts \xff = 255 in base 10
 		stes.append(start_ste)
 
+		# Now go through each of the remaining STEs
 		for ste_i in range(feature_table.ste_count_):
 
+			# Give them identifiers based on tree id, chain id, and ste id
 			ste_id = "%dt_%dl_%ds" % (chain.tree_id_, chain.chain_id_, ste_i)
 
+			# Add to the list
 			ste = anml_net.AddSTE(character_classes[ste_i], AnmlDefs.NO_START, anmlId=ste_id, match=False)
 
+			# Connect them forward
 			anml_net.AddAnmlEdge(stes[-1], ste, 0)
 
 			stes.append(ste)
 
-		# This is our cycle; we're mapping from the last ste back to the 2nd (the first non-start one)
-		# If we're naive, don't loop back; we're in the final state
-		if not naive:
-			anml_net.AddAnmlEdge(stes[-1], stes[1], 0)
+		# This is our cycle; we're mapping from the end of the chain to the start of the loop (remember offset of 1)
+		anml_net.AddAnmlEdge(stes[-1], stes[feature_table.start_loop_ + 1], 0)
 
-		last_feature = feature_table.features_[-1]
+		# The last feature will be accepted from the end_loop ste (remember offset + 1)
+		last_feature = feature_table.features_[feature_table.end_loop_ + 1]
 
 		# We want the index of the last feature's STE, because that's who's going to break us out
 		ste_index_last, start, end = feature_table.get_range(last_feature)
@@ -112,17 +114,21 @@ def generate_anml(chains, feature_table, anml_filename, reverse_value_map=None, 
 		# Reporting STE
 		ste_id = "%dt_%dl_r" % (chain.tree_id_, chain.chain_id_)
 
-		# Add the 1 offset to the value for now (workaround)
+		# For quickrank or any model where the values are not indexes into another list
+		if value_map is not None:
 
-		if reverse_value_map is not None:
-			report_code = reverse_value_map[chain.value_] + 1
+			# Look up the index assigned ot the value
+			report_code = value_map[chain.value_]
+
 		else:
-			report_code = chain.value_ + 1#value_map[chain.value_]
+
+			# 1 offset needed because the AP can't handle '0' report codes
+			report_code = chain.value_ + 1
 
 		ste = anml_net.AddSTE(report_symbol, AnmlDefs.NO_START, anmlId=ste_id, reportCode=report_code)
 
 		# Need to add 1 to the index, because the first STE is the starting STE
-		anml_net.AddAnmlEdge(stes[ste_index_last + 1], ste, 0)
+		anml_net.AddAnmlEdge(stes[end_loop + 1], ste, 0)
 
 	anml_net.ExportAnml(anml_filename)
 

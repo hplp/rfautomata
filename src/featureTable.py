@@ -49,6 +49,8 @@ class FeatureTable(object):
 		# Set the number of stes
 		self.ste_count_ = len(stes)
 
+		# Get loopy information
+		self.start_loop_, self.end_loop_, self.permutation_ = util.getordering(self)
 
 		# Print out STE allocation stats
 		if verbose:

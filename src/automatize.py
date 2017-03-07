@@ -373,8 +373,6 @@ if __name__ == '__main__':
 
         #logging.info("Done writing out files")
 
-        exit()
-
     logging.info("Generating ANML")
 
     generate_anml(chains, ft, options.anml, naive=options.spf)
