@@ -151,7 +151,7 @@ class FeatureTable(object):
 			for row in X:
 
 				# Use the feature indexes as they were added to the feature_pointer ordered dict
-				for f_i in ft.feature_pointer_.keys():
+				for f_i in self.permutation_:
 
 					# Get the corresponding feature value
 					f_v = X[f_i]

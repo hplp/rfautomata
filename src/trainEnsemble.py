@@ -58,17 +58,33 @@ def test_model(model, X_test, y_test, metric):
 
 # Dump the model to a file
 def dump_model(model, modelfile):
-  f = open(modelfile, 'wb')
-  pickle.dump(model, f)
-  f.close()
+
+  with open(modelfile, 'wb') as f:
+
+    pickle.dump(model, f)
+
+  return 0
+
+
+# Dump test data
+def dump_test(X_test, y_test, testfile):
+
+  with open(testfile, 'wb') as f:
+
+    pickle.dump((X_test, y_test), f)
+
+  return 0
 
 # Write report out to file
 def write_report(report_name, report_dict):
-  f = open(report_name, 'w')
-  for key, value in report_dict.items():
-    f.write(str(key) + ": " + str(value))
-  f.close()
-  return
+
+  with open(report_name, 'w') as f:
+
+    for key, value in report_dict.items():
+
+      f.write(str(key) + ": " + str(value))
+
+  return 0
 
 # Main()
 if __name__ == '__main__':
@@ -192,6 +208,12 @@ if __name__ == '__main__':
 
   # Write the model out to a file
   dump_model(model, options.modelout)
+
+  if options.verbose:
+    logging.info("Writing testing data out to testing_data.pickle")
+
+  # Write out the test data for testing with the automata
+  dump_test(X_test, y_test, "testing_data.pickle")
 
   if options.report is not None:
     write_report(options.report, report_dict)

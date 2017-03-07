@@ -43,6 +43,15 @@ def load_model(modelfile):
 
     return model
 
+# Load testing data
+def load_test(testfile):
+
+    #Read the testing data in to be used to generate a symbol file
+    with open(testfile, 'rb') as f:
+        X_test, y_test = pickle.load(f)
+
+    return X_test, y_test
+
 # Dump pickle file containing chains, ft, value_map
 def dump_cftvm(chains, ft, value_map, reverse_value_map, filename):
 
@@ -370,15 +379,23 @@ if __name__ == '__main__':
 
         print util.getordering(ft)
 
-        #dump_cftvm(chains, ft, value_map,reverse_value_map, 'chainsFeatureTableValueMap.pickle')
+        logging.info("Dumping Chains, Feature Table, Value Map and Reverse Value Map to pickle")
 
-        #logging.info("Done writing out files")
+        dump_cftvm(chains, ft, value_map,reverse_value_map, 'chains_ft_vm_rvm.pickle')
+
+        logging.info("Done writing out files")
 
     logging.info("Generating ANML")
 
     generate_anml(chains, ft, value_map, options.anml, naive=options.spf)
 
+    logging.info("Dumping test file")
+    X_test, y_test = load_test("testing_data.pickle")
+    ft.input_file(X_test, "input_file.bin")
+
+    logging.info("Done!")
+
     # If flag enabled, compile and dump into fsm file
     #if options.compile:
-    # .    compile_anml(compile_filename)
+    #   compile_anml(compile_filename)
 
