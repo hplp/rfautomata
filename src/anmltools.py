@@ -29,16 +29,12 @@ def generate_anml(chains, feature_table, anml_filename, reverse_value_map=None, 
 	# Iterate through all chains
 	for chain in chains:
 
-		print feature_table.features_
-		print chain
-
 		# character class assignements for each STE start with '[' and end with ']'
 		character_classes = ['[' for _ste in range(feature_table.ste_count_)]
 
 		next_node_index = 0
 
 		for _f in feature_table.features_:
-
 
 			# If we're still pointing to a valid node ...
 			if next_node_index != len(chain.nodes_):

@@ -23,7 +23,6 @@ from random import *
 import math
 from array import *
 import util
-from collections import OrderedDict
 
 # Define FeatureTable class
 class FeatureTable(object):

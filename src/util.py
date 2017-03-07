@@ -12,9 +12,65 @@
 import math
 from heapq import *
 import logging
-from collections import OrderedDict
 
 logging.basicConfig(format='%(asctime)s : %(message)s', level=logging.INFO)
+
+# Get a valid ordering of features; this is the order in which the input is streamed
+def getordering(ft):
+
+    # Keep track of the features assigned to each STE
+    stes = [[]] * ft.ste_count_
+
+    # Let's figure out which bins the features are assigned to
+    for _f in ft.features_:
+        for ste in ft.get_stes(_f):
+            stes[ste].append(_f)
+
+    # Let's find start and end of the loop
+    start_loop = -1
+    end_loop = -1
+    iteration_count = 0
+
+    # where is the cycle? where we have multiple features
+    for _i, ste in enumerate(stes):
+
+        # Must be part of the loop
+        if len(ste) > 1:
+
+            # If this is the first ste with more than one feature...
+            if start_loop == -1: # We start a loop here!
+                start_loop = _i
+                iteration_count = len(ste)  # Keep track of the number of features we see here
+
+            # If we find a decrease in assigned features, we must've ended on the last STE
+            elif len(ste) < iteration_count:
+                end_loop = _i
+                break
+
+    # If all of the 'loopy' bins are of the same size, the last bin ends the loop
+    if end_loop == -1:
+        end_loop = ft.ste_count_ - 1
+
+    # This is the permutation of features
+    permutation = []
+
+    # All STEs with a single feature (not part of the loop)
+    for _i in range(0, start_loop):
+
+        permutation.append(stes[_i].pop())
+
+    index = start_loop
+
+    while len(stes[index]) > 0:
+        permutation.append(stes[index].pop(0))
+
+        if index == len(stes) - 1:
+            index = start_loop
+        else:
+            index += 1
+
+    # Return the start and end of the loop
+    return start_loop, end_loop, permutation
 
 '''
     Combine the feature address spaces to best utilize STEs
@@ -34,7 +90,7 @@ def compact(threshold_map, priority='runtime', verbose=False):
     stes = []
 
     # Keep track of the [[ste, start, end]] of each feature
-    feature_pointer = OrderedDict()
+    feature_pointer = {}
 
     # Make (feature, len(thresholds)) tuples to be ordered by len(thresholds)
     # Sort tuples of (feature, threshold_count) by threshold_count from largest -> smallest
