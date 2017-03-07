@@ -334,8 +334,9 @@ if __name__ == '__main__':
                 tree_to_chains(tree, tree_id, chains, threshold_map, values)
 
             for _i in values:
-                value_map[classes[_i]] = _i + 1
-                reverse_value_map[_i+1] = classes[_i]
+                #value_map[classes[_i]] = _i + 1
+                value_map = None # We don't need a value map
+                reverse_value_map[_i + 1] = classes[_i]
 
         logging.info("Done converting trees to chains; now sorting")
 
