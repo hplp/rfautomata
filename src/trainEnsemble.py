@@ -1,13 +1,14 @@
 '''
     The purpose of this program is to train a decision-tree based learning
-    algorithm using SKLEARN and to write the resulting model to a file.
+    algorithm using SKLEARN and to write the resulting model and testing
+    data to their respective files.
     ----------------------
     Author: Tom Tracy II
     email: tjt7a@virginia.edu
     University of Virginia
     ----------------------
-    20 January 2017
-    Version 1.1
+    7 March 2017
+    Version 0.2
 '''
 
 # Global dictionaries
@@ -42,18 +43,28 @@ logging.basicConfig(format='%(asctime)s : %(message)s', level=logging.INFO)
 
 # Train the model on the given training data
 def train_model(model, X_train, y_train):
+
   model.fit(X_train, y_train.ravel())
 
 # Test the model on the given testing data
 def test_model(model, X_test, y_test, metric):
+
   if metric == 'acc':
+
     return metrics.accuracy_score(y_test, model.predict(X_test))
+
   elif metric == 'f1':
+
     return metrics.f1_score(y_test, model.predict(X_test))
+
   elif metric == 'mse':
+
     return metrics.mean_squared_error(y_test, model.predict(X_test))
+
   else:
+
     raise ValueError("Invalid metric %s provided" % metric)
+
     return -1
 
 # Dump the model to a file
@@ -97,7 +108,6 @@ if __name__ == '__main__':
   parser.add_option('--metric', type='string', default='acc', dest='metric', help='Provide the training metric to be displayed')
   parser.add_option('-m', '--model', type='string', dest='model', help='Choose the model')
   parser.add_option('--model-out', type='string', dest='modelout', default='model.pickle', help='Output model file')
-  # parser.add_option('-o', '--file-out', type='string', dest='outfile', help='Save resulting X and y to a file')
   parser.add_option('-d', '--depth', type='int', dest='depth', help='Max depth of the decision tree learners')
   parser.add_option('-n', '--tree_n', type='int', dest='tree_n', help='Number of decision trees')
   parser.add_option('-v', '--verbose', action='store_true', default=False, dest='verbose', help='Verbose')
