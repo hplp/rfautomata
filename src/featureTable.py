@@ -111,9 +111,6 @@ class FeatureTable(object):
 
 					threshold_value = self.stes_[ste][i]
 
-					print "value: ", value
-					print "threshold value: ", threshold_value
-
 					# If at end of ranges, or our value <= threshold value,
 					# append this label
 					if threshold_value == -1 or value <= threshold_value:
@@ -136,12 +133,16 @@ class FeatureTable(object):
 	# This function generates an input file from an input X
 	def input_file(self, X, filename):
 
+		num_bytes_per_class = 0
+
 		# Open up the output file
 		with open(filename, 'wb') as f:
 
 			inputstring = array('B')
 			inputstring.append(255) #We always start with a /xff
 
+
+			print "%d features in the permutation" % len(self.permutation_)
 			# For each input row...
 			for row in X:
 
@@ -154,9 +155,12 @@ class FeatureTable(object):
 					for ste, symbol in self.get_symbols(f_i, f_v):
 
 						inputstring.append(symbol)
+						num_bytes_per_class += 1
 
 				# We always finish each feature with a 255
 				inputstring.append(255)
+				print "%d bytes for this classification" % num_bytes_per_class
+				num_bytes_per_class = 0
 
 			f.write(inputstring.tostring())
 

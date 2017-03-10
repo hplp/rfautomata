@@ -13,19 +13,21 @@
     21 November 2016
     Version 1.0
 '''
-
-from micronap.sdk import *
+from Anml import *
+#from micronap.sdk import *
 import util
 
 # Generate ANML code for the provided chains
 def generate_anml(chains, feature_table, value_map, anml_filename, reverse_value_map=None, naive=False):
 
 	# Create an automata network
-	anml = Anml()
-	anml_net = anml.CreateAutomataNetwork()
+	#anml = Anml()
+	#anml_net = anml.CreateAutomataNetwork()
+
+	anml_net = Anml()
 
 	# This code is used to start and report
-	report_symbol = r"\x%02X" % 255
+	report_symbol = r"[\x%02X]" % 255
 
 	# Iterate through all chains
 	for chain in chains:
@@ -62,15 +64,21 @@ def generate_anml(chains, feature_table, value_map, anml_filename, reverse_value
 
 					for _ste, _start, _end  in feature_table.get_ranges(_f):
 
-						character_classes[_ste] += r"\x%02X-\x%02X" % (_start, _end - 1)
+						for _c in range(_start, _end):
+
+							character_classes[_ste] += r"\x%02X" % _c#r"\x%02X-\x%02X" % (_start, _end - 1)
 
 			# We're done with the available features in our chain
 			else:
 
 				for _ste, _start, _end  in feature_table.get_ranges(_f):
 
+					for _c in range(_start, _end):
+
+						character_classes[_ste] += r"\x%02X" % _c
+
 					# Because this feature is not part of the chain, accept the full range
-					character_classes[_ste] += r"\x%02X-\x%02X" % (_start, _end - 1)
+					#character_classes[_ste] += r"\x%02X-\x%02X" % (_start, _end - 1)
 
 		# End the character classes with ']'
 		for i in range(len(character_classes)):

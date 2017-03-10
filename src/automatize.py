@@ -27,7 +27,7 @@ import numpy as np
 # Automata Imports
 from chain import *
 from featureTable import *
-#import plot
+import plot
 import quickrank as qr
 from anmltools import *
 
@@ -61,7 +61,7 @@ def dump_cftvm(chains, ft, value_map, reverse_value_map, filename):
     return 0
 
 # Load the chains, FT and value map from a file
-def load_cft_vm(cftFile):
+def load_cftvm(cftFile):
 
     with open(cftFile, 'rb') as f:
         chains, ft, value_map, reverse_value_map = pickle.load(f)
@@ -183,17 +183,22 @@ def set_character_sets(chain, ft):
                 # Grab the labels assigned to the range for this feature in this STE
                 labels = range(start, end)
 
-                # Also grab the thresholds assigned to the feauture
+                # Also grab the thresholds assigned to the feauture at this ste
                 thresholds = ft.stes_[ste][start:end]
+
+                assert len(labels) == len(thresholds), "Zipping labels and thresholds is gonna fail :("
 
                 # If the range was discovered in a previous bin, we're going with -2
                 if found:
 
-                    # We'll only accept the '-2' flag
+                    # We'll only accept the '-2' flag (meaning, not in any of these ranges (for this STE))
                     character_set = [labels[-1]]
+
+                    assert labels[-1] == -2, "The last label for this bin is not -2"
 
                 else:
 
+                    # Go from the first (smallest) to the last (largest) label for this bin
                     for label, threshold_limit in zip(labels, thresholds):
 
                         # We've reached the end
@@ -203,6 +208,7 @@ def set_character_sets(chain, ft):
                         # Our thresholds == the current range limit, so we're done
                         elif threshold == threshold_limit:
                             character_set.append(label)
+                            found = True
                             break
 
                         # Our threshold < current range limit, move on
@@ -214,16 +220,20 @@ def set_character_sets(chain, ft):
                         elif threshold_limit == -2:
                             break
 
-                        # Our threshold is > current range limit, break
+                        # Our threshold is > current range limit, we've found the end of the range; break
                         else:
+                            found = True
                             break
 
+            # If this STE accepts >
             else:
 
-                labels = range(end, start-1, -1)
+                labels = range(end - 1 , start - 1, -1)
 
-                # We're going throught he thresholds from back to front
+                # We're going throught the thresholds from back to front
                 thresholds = (ft.stes_[ste][start:end])[::-1]
+
+                assert len(labels) == len(thresholds), "Zipping labels and thresholds is gonna fail :("
 
                 # If the range was discovered in a previous bin, we're going with -2
                 if found:
@@ -231,23 +241,38 @@ def set_character_sets(chain, ft):
                     # We'll only accept the '-2' flag
                     character_set = [labels[-1]]
 
+                    assert labels[-1] == -2, "The last label for this bin is not -2"
+
                 else:
 
+                    # Go from the last (largest) to the first (smallest) label for this bin
                     for label, threshold_limit in zip(labels, thresholds):
 
+                        # We expect to run into -2 before getting outside of our range; ignore it
+                        if threshold_limit == -2:
+                            continue
+
+                        # -1 will always be accepts (for >)
                         if threshold_limit == -1:
                             character_set.append(label)
 
+                        # If our threshold > threshold_limit, we'll accept
                         elif threshold > threshold_limit:
                             character_set.append(label)
 
+                        # If threshold <= threshold_limit, we don't accept this range, and found our limit
                         else:
+                            assert threshold <= threshold_limit, "thresholds is not <= threshold_limit"
+                            found = True
                             break
 
+            # Append the character set for this ste
             character_sets.append(character_set)
 
-        node.set_character_sets(character_sets)
+        assert len(ft.feature_pointer_[node.feature_]) == len(character_sets), "character sets aren't the right length"
 
+        # Set the node's character sets
+        node.set_character_sets(character_sets)
 
 # Main()
 if __name__ == '__main__':
@@ -268,7 +293,7 @@ if __name__ == '__main__':
 
     # This allows us to test the ANML code faster by loading our converted data structures
     if options.cftvm is not None:
-        chains, ft, value_map, reverse_value_map = load_cft_vm(options.cftvm)
+        chains, ft, value_map, reverse_value_map = load_cftvm(options.cftvm)
 
     # Otherwise, let's do this from scratch
     else:
@@ -359,8 +384,8 @@ if __name__ == '__main__':
             t.sort()
 
         # Let's look at the threshold distribution if verbose
-        #if options.verbose:
-        #   plot.plot_thresholds(threshold_map)
+        if options.verbose:
+           plot.plot_thresholds(threshold_map)
 
         logging.info("Building the Feature Table")
 
@@ -375,11 +400,11 @@ if __name__ == '__main__':
             set_character_sets(chain, ft)
             chain.sort_and_combine()
 
-        #logging.info("Dumping Chains, Feature Table, Value Map and Reverse Value Map to pickle")
+        logging.info("Dumping Chains, Feature Table, Value Map and Reverse Value Map to pickle")
 
-        #dump_cftvm(chains, ft, value_map,reverse_value_map, 'chains_ft_vm_rvm.pickle')
+        dump_cftvm(chains, ft, value_map,reverse_value_map, 'chains_ft_vm_rvm.pickle')
 
-        #logging.info("Done writing out files")
+        logging.info("Done writing out files")
 
     logging.info("Generating ANML")
 
@@ -387,7 +412,8 @@ if __name__ == '__main__':
 
     logging.info("Dumping test file")
     X_test, y_test = load_test("testing_data.pickle")
-    ft.input_file(X_test[0:100], "input_file.bin")
+
+    ft.input_file(X_test, "input_file.bin")
 
     logging.info("Done!")
 

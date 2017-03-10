@@ -73,6 +73,8 @@ def getordering(ft):
     for ste in stes:
         assert len(ste) == 0, "Permutation generator failed"
 
+    assert len(permutation) == len(ft.features_), "Something's not right about the feature permutation"
+
     # Return the start and end of the loop
     return start_loop, end_loop, permutation
 
