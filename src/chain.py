@@ -142,7 +142,7 @@ class Chain(object):
 					print "Found two nodes with the same feature: ", \
 						previous_node, " == ", current_node
 
-				previous_node.set_character_sets(current_node.character_set)
+				previous_node.set_character_sets(current_node.character_sets)
 				self.nodes_.remove(current_node)
 
 			else:

@@ -54,8 +54,8 @@ def visualize(X, y, rndm=True):
 
 # Read from the ocr file
 def readOCR(filename, verbose):
-    y = np.empty((0, 1), np.uint)
-    X = np.empty((0, ROWS * COLS), np.uint)
+    y = []#np.empty((0, 1), np.uint)
+    X = []#np.empty((0, ROWS * COLS), np.uint)
 
     with open(filename) as ocrfile:
         i = 1
@@ -69,12 +69,17 @@ def readOCR(filename, verbose):
             #fold = int(tokens[5])
             pixels = tokens[6:]
             pixels.remove('\n') # Cut off the training newline
-            y = np.vstack((y, np.array([character])))
-            X = np.vstack((X, np.array([int(x) for x in pixels])))
 
-            if verbose:
-                print('%d / %d' % (i, LINES))
-                i = i + 1
+            y.append(character)
+            X.append([int(x) for x in pixels])
+
+            #y = np.vstack((y, np.array([character])))
+            #X = np.vstack((X, np.array([int(x) for x in pixels])))
+
+    # Convert lists into arrays
+    X = np.array(X)
+    y = np.array(y)
+
     return X, y
 
 if __name__ == '__main__':

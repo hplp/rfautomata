@@ -15,16 +15,43 @@ import logging
 
 logging.basicConfig(format='%(asctime)s : %(message)s', level=logging.INFO)
 
+
 # Get a valid ordering of features; this is the order in which the input is streamed
 def getordering(ft):
 
     # Keep track of the features assigned to each STE
-    stes = [[]] * ft.ste_count_
+    stes = [[] for x in xrange(ft.ste_count_)]
 
     # Let's figure out which bins the features are assigned to
     for _f in ft.features_:
-        for ste in ft.get_stes(_f):
-            stes[ste].append(_f)
+
+        for _i in ft.get_stes(_f):
+
+            stes[_i].append(_f)
+
+
+    stes.sort(key=lambda x: len(x), reverse=True)
+
+    new_stes = []
+
+    # Add all of the one-feature STEs to the front of the new list
+    while len(stes[-1]) == 1:
+        new_stes.append(stes.pop())
+
+    assert len(new_stes[0]) == len(new_stes[-1]) or len(new_stes[0]) == (len(new_stes[-1]) -1 )
+
+    # Then add the rest of the reverse-sorted list to the new one
+    new_stes.extend(stes)
+    stes = new_stes
+
+    '''
+        Some Comments
+
+        A loop is a series of contiguous STEs that are connected in a loop,
+        where the end of the series is connected to the start of the
+        series; this allows for combining multiple features into fewer STEs
+        by temporally representing them (in space and time).
+    '''
 
     # Let's find start and end of the loop
     start_loop = -1
@@ -66,14 +93,16 @@ def getordering(ft):
         permutation.append(stes[index].pop(0))
 
         if index == len(stes) - 1:
+
             index = start_loop
+
         else:
+
             index += 1
 
     for ste in stes:
-        assert len(ste) == 0, "Permutation generator failed"
 
-    assert len(permutation) == len(ft.features_), "Something's not right about the feature permutation"
+        assert len(ste) == 0, "Permutation generator failed"
 
     # Return the start and end of the loop
     return start_loop, end_loop, permutation
@@ -427,7 +456,8 @@ def balance(feature_list, sizes, threshold_map, threshold_counts, BINSIZE, verbo
 
         num_features = len(ste)
 
-        print "We're going to remove %d features from ste %d" % ((num_features - min_features), i)
+        if verbose:
+            print "We're going to remove %d features from ste %d" % ((num_features - min_features), i)
 
         # Remove the extra features from each STE
         for _ in range(num_features - min_features):
@@ -466,7 +496,8 @@ def balance(feature_list, sizes, threshold_map, threshold_counts, BINSIZE, verbo
 
         timeout.append((size, features))
 
-    logging.info("Balanced feature list: %s" % str(feature_list))
+    if verbose:
+        logging.info("Balanced feature list: %s" % str(feature_list))
 
     # If we got here without issues, we balanced!
     return True

@@ -20,17 +20,30 @@ logging.basicConfig(format='%(asctime)s : %(message)s', level=logging.INFO)
 
 # Read the MSLR file and stack X and y
 def readmslr(filename):
-    y = np.empty((0, 1), int)
-    X = np.empty((0, 136), float)
+
+    # Populate lists and then convert to NUMPY arrays; faster then stacking
+    y = []
+    X = []
+
+    # This assumes that they're in the correct order
     with open(filename) as mslrfile:
         for line in mslrfile:
             tokens = line.split()
             score = int(tokens[0])
             features = [float(x.split(':')[1]) for x in tokens[2:]]
+
             if '\n' in features:
                 features.remove('\n')
-            y = np.vstack((y, np.array([score])))
-            X = np.vstack((X, np.array(features)))
+
+            assert len(features) == 136, "Don't have the right number of features"
+
+            y.append(score)
+            X.append(features)
+
+    # Convert lists into arrays
+    X = np.array(X)
+    y = np.array(y)
+
     return X, y
 
 if __name__ == '__main__':

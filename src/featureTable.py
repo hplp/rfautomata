@@ -52,6 +52,8 @@ class FeatureTable(object):
 		# Get loopy information
 		self.start_loop_, self.end_loop_, self.permutation_ = util.getordering(self)
 
+		print "Start: %d, End: %d, Permutation: %s" % (self.start_loop_, self.end_loop_, str(self.permutation_))
+
 	# String representation of the STEs
 	def __str__(self):
 		string = ""
@@ -131,7 +133,7 @@ class FeatureTable(object):
 		return return_list
 
 	# This function generates an input file from an input X
-	def input_file(self, X, filename):
+	def input_file(self, X, filename, onebased=False):
 
 		num_bytes_per_class = 0
 
@@ -141,8 +143,9 @@ class FeatureTable(object):
 			inputstring = array('B')
 			inputstring.append(255) #We always start with a /xff
 
-
-			print "%d features in the permutation" % len(self.permutation_)
+			print "%d features in each row of X" % len(X[0])
+			print "%d unique features in this permutation" % len(set(self.permutation_))
+			print "%d cycles per classification" % len(self.permutation_)
 			# For each input row...
 			for row in X:
 
@@ -150,7 +153,10 @@ class FeatureTable(object):
 				for f_i in self.permutation_:
 
 					# Get the corresponding feature value
-					f_v = row[f_i]
+					if onebased:
+						f_v = row[f_i - 1]
+					else:
+						f_v = row[f_i]
 
 					for ste, symbol in self.get_symbols(f_i, f_v):
 
@@ -159,7 +165,6 @@ class FeatureTable(object):
 
 				# We always finish each feature with a 255
 				inputstring.append(255)
-				print "%d bytes for this classification" % num_bytes_per_class
 				num_bytes_per_class = 0
 
 			f.write(inputstring.tostring())

@@ -106,6 +106,7 @@ def tree_to_chains(tree_id, tree_weight, tree_split, chains, threshold_map, valu
     # Make two copies of our chain
     right_chain = Chain(tree_id, tree_weight=tree_weight)
     root_node = Node(feature, threshold, True)
+    right_chain.add_node(root_node)
 
     # Recursively add chains to the list as we iterate left
     chains += recurse(split[0], left_chain, threshold_map, values)
@@ -131,6 +132,7 @@ def recurse(split, temp_chain, threshold_map, values):
             values.append(value)
 
         temp_chain.set_value(value)
+
         return [temp_chain]
 
     else:

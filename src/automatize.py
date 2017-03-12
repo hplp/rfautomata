@@ -1,8 +1,10 @@
 '''
-    The purpose of this program is to convert SKLEARN models into
-    an automata representation.
+    The purpose of this program is to convert
+    SKLEARN and QUICKLEARN models into an
+    automata representation.
 
-    For the time being let's only support Random Forests
+    For the time being let's only support Random Forests,
+    BRTs, ADABOOST, and Quicklearn Models.
     ----------------------
     Author: Tom Tracy II
     email: tjt7a@virginia.edu
@@ -14,7 +16,8 @@
     *Definitions*
     ----------------------
     features: a LIST containing all of the features
-    threshold_map: a DICT that maps features to a list of all thresholds used for that feature
+    threshold_map: a DICT that maps features to a list of
+    all thresholds used for that feature in the model
 '''
 
 # Utility Imports
@@ -194,7 +197,7 @@ def set_character_sets(chain, ft):
                     # We'll only accept the '-2' flag (meaning, not in any of these ranges (for this STE))
                     character_set = [labels[-1]]
 
-                    assert labels[-1] == -2, "The last label for this bin is not -2"
+                    assert thresholds[-1] == -2, "The last label for this bin is not -2, it's %d" % (labels[-1])
 
                 else:
 
@@ -239,9 +242,9 @@ def set_character_sets(chain, ft):
                 if found:
 
                     # We'll only accept the '-2' flag
-                    character_set = [labels[-1]]
+                    character_set = [labels[0]]
 
-                    assert labels[-1] == -2, "The last label for this bin is not -2"
+                    assert thresholds[0] == -2, "The last label for this bin is not -2"
 
                 else:
 
@@ -383,6 +386,10 @@ if __name__ == '__main__':
         for f,t in threshold_map.items():
             t.sort()
 
+        if options.verbose:
+            logging.info("There are %d features in the threshold map [%d-%d]" %\
+                (len(threshold_map.keys()), min(threshold_map.keys()), max(threshold_map.keys())))
+
         # Let's look at the threshold distribution if verbose
         if options.verbose:
            plot.plot_thresholds(threshold_map)
@@ -413,7 +420,8 @@ if __name__ == '__main__':
     logging.info("Dumping test file")
     X_test, y_test = load_test("testing_data.pickle")
 
-    ft.input_file(X_test, "input_file.bin")
+    # If we're using quickrank, are features are based at index = 1, instead of 0
+    ft.input_file(X_test, "input_file.bin", onebased=quickrank)
 
     logging.info("Done!")
 
