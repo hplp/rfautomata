@@ -4,3 +4,5 @@ models/MSLR/
 models/ocr/
 *.pyc
 *.pickle
+src/model.*
+src/input_file.bin
