@@ -23,6 +23,7 @@ from random import *
 import math
 from array import *
 import util
+from collections import OrderedDict
 
 # Define FeatureTable class
 class FeatureTable(object):
@@ -30,14 +31,15 @@ class FeatureTable(object):
 	# Constructor creates one contiguous feature address space
 	def __init__(self, threshold_map, verbose=True):
 
-		# A list of all features used
-		self.features_ = threshold_map.keys()
+		ordered_threshold_map = OrderedDict(sorted(threshold_map.items(), key=lambda x:int(x[0])))
+
+		self.features_ = ordered_threshold_map.keys()
 
 		# A dictionary from features -> list of thresholds
-		self.threshold_map_ = threshold_map
+		self.threshold_map_ = ordered_threshold_map
 
 		# Find the minimum number of stes required to handle the features
-		feature_pointer, stes = util.compact(threshold_map)
+		feature_pointer, stes, start_loop, end_loop = util.compact(self.threshold_map_, verbose=True)
 
 		# Assign feature_pointer and stes
 		# feature -> [(STE, start, end)]
@@ -49,14 +51,17 @@ class FeatureTable(object):
 		# Set the number of stes
 		self.ste_count_ = len(stes)
 
+		self.start_loop_ = start_loop
+		self.end_loop_ = end_loop
+
 		# Get loopy information
-		self.start_loop_, self.end_loop_, self.permutation_ = util.getordering(self)
+		self.permutation_ = util.getordering(self)
 
 		print "Start: %d, End: %d, Permutation: %s" % (self.start_loop_, self.end_loop_, str(self.permutation_))
 
 	# String representation of the STEs
 	def __str__(self):
-		string = ""
+		string = "STE Count: %d\n" % self.ste_count_
 
 		# Enumerate all features and which STE its mapped to / what range
 		for i, feature in enumerate(self.features_):
@@ -102,38 +107,57 @@ class FeatureTable(object):
 		# Go from the start to the end of the ste and check for a matching range
 		for ste, start, end in ranges:
 
+			labels = range(start, end)
+			thresholds = self.stes_[ste][start:end]
+
+			assert len(labels) == len(thresholds), "Zipping labels and thresholds is gonna fail :("
+
 			# If we've already found our range.. tack on a -2
 			if found_symbol:
-				assert -2 == self.stes_[ste][end-1], "-2 != %d" % self.stes_[ste][end-1]
+
 				return_list.append((ste, end-1))
 
+				assert thresholds[-1] == -2
+
 			else:
-				# Iterate from the start to the end of the thresholds assigned to this STE
-				for i in range(start, end):
 
-					threshold_value = self.stes_[ste][i]
+				for label, threshold_limit in zip(labels, thresholds):
 
-					# If at end of ranges, or our value <= threshold value,
-					# append this label
-					if threshold_value == -1 or value <= threshold_value:
+					# We haven't found our range yet
+					if threshold_limit == -2:
+						return_list.append((ste, label))
+
+					elif threshold_limit == -1:
 
 						found_symbol = True
-						return_list.append((ste, i))
-						break # we're done with this STE
+						return_list.append((ste, label))
+						break
 
-					# We found a don't care
-					elif threshold_value == -2:
+					elif threshold_limit == value:
 
-						return_list.append((ste, i))
+						return_list.append((ste, label))
+						found_symbol = True
+						break
 
-					# If our value is still greater than the threshold_value, keep going
-					else:
+					elif threshold_limit < value:
 						continue
 
+					elif threshold_limit > value:
+						return_list.append((ste, label))
+						found_symbol = True
+						break
+
+		# Make sure that we're returning one symbol per STE assigned to the feature
+		assert len(return_list) == len(ranges)
+
+		#print "Value: %d, Return List: " % value, return_list
 		return return_list
 
 	# This function generates an input file from an input X
-	def input_file(self, X, filename, onebased=False):
+	def input_file(self, X, filename, onebased=False, short=False):
+
+		if short:
+			X = X[:100]
 
 		num_bytes_per_class = 0
 

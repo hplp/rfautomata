@@ -114,10 +114,9 @@ def recurse(tree, index, temp_chain, threshold_map, values):
 
     feature = tree.feature[index]
     threshold = tree.threshold[index]
-    value = np.argmax(tree.value[index])
 
-    left = tree.children_left[index]
-    right = tree.children_right[index]
+    # Take the most observed class index
+    value = np.argmax(tree.value[index])
 
     # We're a leaf; we're done here
     if feature == -2:
@@ -132,6 +131,9 @@ def recurse(tree, index, temp_chain, threshold_map, values):
 
     # If we're not a leaf, we got children!
     else:                           # We can do this because all trees with children have both
+
+        left = tree.children_left[index]
+        right = tree.children_right[index]
 
         # Keeping track of features and associated thresholds
         if feature not in threshold_map:
@@ -161,33 +163,32 @@ def set_character_sets(chain, ft):
      # Iterate through all nodes,
     for node in chain.nodes_:
 
-        # Let us build a character set list
+        # Let us build a character set list for this node; one character set per STE assigned to node
         character_sets = []
 
-        # Grab node attributes
-        feature = node.feature_
-        threshold = node.threshold_
-        gt = node.gt_
+        # Grab STE labels associated with feature; make a copy
+        ranges = list(ft.get_ranges(node.feature_)) # [(ste, start, end)]
 
-        # Grab STE labels associated with feature
-        ranges = ft.get_ranges(feature) # [(ste, start, end)]
+        found = False # Haven't found our 'range' yet
 
-        found = False
+        # If this STE accepts <=
+        if not node.gt_:
 
-        # Go through each STE
-        for ste, start, end in ranges:
+            # Go through each STE from the smallest to largest features
+            for ste, start, end in ranges:
 
-            # Each STE assigned to this feature needs its own character set
-            character_set = []
-
-            # If this STE accepts <=
-            if not gt:
+                # Each STE assigned to this feature needs its own character set
+                character_set = []
 
                 # Grab the labels assigned to the range for this feature in this STE
                 labels = range(start, end)
 
-                # Also grab the thresholds assigned to the feauture at this ste
+                # Also grab the thresholds assigned to the feature at this ste
                 thresholds = ft.stes_[ste][start:end]
+
+                #print " <= ", node.threshold_
+                #print "Thresh: ", thresholds
+                #print "Labels: ", labels
 
                 assert len(labels) == len(thresholds), "Zipping labels and thresholds is gonna fail :("
 
@@ -195,46 +196,56 @@ def set_character_sets(chain, ft):
                 if found:
 
                     # We'll only accept the '-2' flag (meaning, not in any of these ranges (for this STE))
-                    character_set = [labels[-1]]
+                    character_set.append(labels[-1])
 
                     assert thresholds[-1] == -2, "The last label for this bin is not -2, it's %d" % (labels[-1])
+                    assert character_set == [labels[-1]]
 
                 else:
 
                     # Go from the first (smallest) to the last (largest) label for this bin
                     for label, threshold_limit in zip(labels, thresholds):
 
-                        # We've reached the end
-                        if threshold_limit == -1:
+                        # We accept this label, because its <= threshold
+                        if threshold_limit < node.threshold_:
                             character_set.append(label)
 
-                        # Our thresholds == the current range limit, so we're done
-                        elif threshold == threshold_limit:
+                        # We accept this label, and we're done
+                        elif threshold_limit == node.threshold_:
                             character_set.append(label)
                             found = True
                             break
 
-                        # Our threshold < current range limit, move on
-                        elif threshold < threshold_limit:
-                            character_set.append(label)
-
-                        # If we've reached the end of the STE, that means we're still looking
-                        # DO NOT accept this
-                        elif threshold_limit == -2:
-                            break
-
-                        # Our threshold is > current range limit, we've found the end of the range; break
+                        # We should never have made it here!
                         else:
-                            found = True
-                            break
+                            print "We should not be here!"
+                            exit()
 
-            # If this STE accepts >
-            else:
+                # Append the character set for this ste
+                character_sets.append(character_set)
 
+        # If this STE accepts >
+        else:
+
+            # Invert the ranges, to start from the largest features
+            # This means that we'll need to reverse our character sets at the end
+            ranges.reverse()
+
+            # Go through each STE from the larges to the smallest feature
+            for ste, start, end in ranges:
+
+                character_set = []
+
+                # Reversed labels
                 labels = range(end - 1 , start - 1, -1)
 
                 # We're going throught the thresholds from back to front
-                thresholds = (ft.stes_[ste][start:end])[::-1]
+                thresholds = ft.stes_[ste][start:end]
+                thresholds.reverse()
+
+                #print "> Threshold: ", node.threshold_
+                #print "Thresholds: ", thresholds
+                #print "Labels: ", labels
 
                 assert len(labels) == len(thresholds), "Zipping labels and thresholds is gonna fail :("
 
@@ -242,7 +253,7 @@ def set_character_sets(chain, ft):
                 if found:
 
                     # We'll only accept the '-2' flag
-                    character_set = [labels[0]]
+                    character_set.append(labels[0])
 
                     assert thresholds[0] == -2, "The last label for this bin is not -2"
 
@@ -256,23 +267,31 @@ def set_character_sets(chain, ft):
                             continue
 
                         # -1 will always be accepts (for >)
-                        if threshold_limit == -1:
+                        elif threshold_limit == -1:
                             character_set.append(label)
 
                         # If our threshold > threshold_limit, we'll accept
-                        elif threshold > threshold_limit:
+                        elif threshold_limit > node.threshold_:
                             character_set.append(label)
 
-                        # If threshold <= threshold_limit, we don't accept this range, and found our limit
-                        else:
-                            assert threshold <= threshold_limit, "thresholds is not <= threshold_limit"
+                        # Don't accept and break
+                        elif threshold_limit == node.threshold_:
                             found = True
                             break
 
-            # Append the character set for this ste
-            character_sets.append(character_set)
+                        else:
+                            print "We shouldn't be here"
+                            exit()
+
+                # Append the character set for this ste
+                character_sets.append(character_set)
+
+            character_sets.reverse()
 
         assert len(ft.feature_pointer_[node.feature_]) == len(character_sets), "character sets aren't the right length"
+
+        for c_s in character_sets:
+            c_s.sort()
 
         # Set the node's character sets
         node.set_character_sets(character_sets)
@@ -287,7 +306,6 @@ if __name__ == '__main__':
     parser = OptionParser(usage)
     parser.add_option('-m', '--model', type='string', dest='model', help='Input SKLEARN model pickle file')
     parser.add_option('-a', '--anml', type='string', dest='anml', default='model.anml', help='ANML output filename')
-    parser.add_option('-c', '--compile', action='store_true', default=False, dest='compile', help='To compile or not to compile')
     parser.add_option('-f', '--fsm', type='string', dest='fsm', help='FSM filename for compiling')
     parser.add_option('--chain-ft-vm', type='string', dest='cftvm', help="Filename of chains and feature table pickle")
     parser.add_option('--spf', action='store_true', default=False, dest='spf', help='Use one STE per Feature')
@@ -309,7 +327,7 @@ if __name__ == '__main__':
             model = None
 
             # Simple check if quickrank model
-            if 'xml' in options.model:
+            if '.xml' in options.model:
 
                 quickrank = True
 
@@ -340,15 +358,14 @@ if __name__ == '__main__':
         # Keep track of unique values
         values = []
 
-        # Iterate through all trees in the forest and keep track of chains, features, and thresholds
-        logging.info("Converting trees to chains")
-
         # We're going to use these to index leaf values (classes)
         value_map = {}
         reverse_value_map = {}
 
         # To deal with quickrank, we need to parse the trees differently
         if quickrank:
+
+            logging.info("Converting QuickRank trees to chains")
 
             # Here is where we generate the chains from the trees
             for tree_id, tree_weight, tree_split in trees:
@@ -364,11 +381,17 @@ if __name__ == '__main__':
 
         else:
 
+            logging.info("Converting SKLEARN trees to chains")
+
             classes = model.classes_
+
+            logging.info("%d unique classifications available: %s" % (len(classes), str(model.classes_)))
 
             for tree_id, tree in enumerate(trees):
 
                 tree_to_chains(tree, tree_id, chains, threshold_map, values)
+
+            logging.info("There are %d chains" % len(chains))
 
             for _i in values:
                 #value_map[classes[_i]] = _i + 1
@@ -391,8 +414,8 @@ if __name__ == '__main__':
                 (len(threshold_map.keys()), min(threshold_map.keys()), max(threshold_map.keys())))
 
         # Let's look at the threshold distribution if verbose
-        if options.verbose:
-           plot.plot_thresholds(threshold_map)
+        #if options.verbose:
+        #   plot.plot_thresholds(threshold_map)
 
         logging.info("Building the Feature Table")
 
@@ -409,7 +432,7 @@ if __name__ == '__main__':
 
         logging.info("Dumping Chains, Feature Table, Value Map and Reverse Value Map to pickle")
 
-        dump_cftvm(chains, ft, value_map,reverse_value_map, 'chains_ft_vm_rvm.pickle')
+        #dump_cftvm(chains, ft, value_map,reverse_value_map, 'chains_ft_vm_rvm.pickle')
 
         logging.info("Done writing out files")
 
@@ -418,14 +441,10 @@ if __name__ == '__main__':
     generate_anml(chains, ft, value_map, options.anml, naive=options.spf)
 
     logging.info("Dumping test file")
+
     X_test, y_test = load_test("testing_data.pickle")
 
     # If we're using quickrank, are features are based at index = 1, instead of 0
-    ft.input_file(X_test, "input_file.bin", onebased=quickrank)
+    ft.input_file(X_test, "input_file.bin", onebased=quickrank, short=True)
 
     logging.info("Done!")
-
-    # If flag enabled, compile and dump into fsm file
-    #if options.compile:
-    #   compile_anml(compile_filename)
-

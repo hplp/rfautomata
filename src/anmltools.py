@@ -37,10 +37,11 @@ def generate_anml(chains, feature_table, value_map, anml_filename, reverse_value
 
 		next_node_index = 0
 
+		# Iterate through all features in the feature_table
 		for _f in feature_table.features_:
 
 			# If we're still pointing to a valid node ...
-			if next_node_index != len(chain.nodes_):
+			if next_node_index < len(chain.nodes_):
 
 				# Grab that next node
 				next_node = chain.nodes_[next_node_index]
@@ -64,21 +65,22 @@ def generate_anml(chains, feature_table, value_map, anml_filename, reverse_value
 
 					for _ste, _start, _end  in feature_table.get_ranges(_f):
 
-						for _c in range(_start, _end):
+						# Because this feature is not part of the chain, accept the full range
+						character_classes[_ste] += r"\x%02X-\x%02X" % (_start, _end - 1)
 
-							character_classes[_ste] += r"\x%02X" % _c#r"\x%02X-\x%02X" % (_start, _end - 1)
+						#for _c in range(_start, _end):
+						#	character_classes[_ste] += r"\x%02X" % _c#r"\x%02X-\x%02X" % (_start, _end - 1)
 
 			# We're done with the available features in our chain
 			else:
 
 				for _ste, _start, _end  in feature_table.get_ranges(_f):
 
-					for _c in range(_start, _end):
-
-						character_classes[_ste] += r"\x%02X" % _c
-
 					# Because this feature is not part of the chain, accept the full range
-					#character_classes[_ste] += r"\x%02X-\x%02X" % (_start, _end - 1)
+					character_classes[_ste] += r"\x%02X-\x%02X" % (_start, _end - 1)
+
+					#for _c in range(_start, _end):
+					#	character_classes[_ste] += r"\x%02X" % _c
 
 		# End the character classes with ']'
 		for i in range(len(character_classes)):
@@ -100,7 +102,7 @@ def generate_anml(chains, feature_table, value_map, anml_filename, reverse_value
 		for ste_i in range(feature_table.ste_count_):
 
 			# Give them identifiers based on tree id, chain id, and ste id
-			ste_id = "%dt_%dl_%ds" % (chain.tree_id_, chain.chain_id_, ste_i)
+			ste_id = "%dt_%dl_%d" % (chain.tree_id_, chain.chain_id_, ste_i)
 
 			# Add to the list
 			ste = anml_net.AddSTE(character_classes[ste_i], AnmlDefs.NO_START, anmlId=ste_id, match=False)
@@ -114,7 +116,7 @@ def generate_anml(chains, feature_table, value_map, anml_filename, reverse_value
 		anml_net.AddAnmlEdge(stes[-1], stes[feature_table.start_loop_ + 1], 0)
 
 		# The last feature will be accepted from the end_loop ste (remember offset + 1)
-		last_feature = feature_table.features_[feature_table.end_loop_ + 1]
+		#last_feature = feature_table.features_[feature_table.end_loop_ + 1]
 
 		# Reporting STE
 		ste_id = "%dt_%dl_r" % (chain.tree_id_, chain.chain_id_)
@@ -134,6 +136,8 @@ def generate_anml(chains, feature_table, value_map, anml_filename, reverse_value
 
 		# Need to add 1 to the index, because the first STE is the starting STE
 		anml_net.AddAnmlEdge(stes[feature_table.end_loop_ + 1], ste, 0)
+
+		del stes
 
 	anml_net.ExportAnml(anml_filename)
 
