@@ -33,6 +33,7 @@ import pickle
 from optparse import OptionParser
 import numpy as np
 import logging
+import time
 
 # Model Imports
 from sklearn.model_selection import train_test_split
@@ -104,6 +105,31 @@ def write_report(report_name, report_dict):
 			f.write(str(key) + ": " + str(value))
 
 	return 0
+
+def get_throughput(model, X_test, iters):
+
+	print("Model: ", str(model))
+
+	logging.info("Test Data: %d samples x %d features" % (X_test.shape))
+
+	start_time = time.time()
+	for i in range(int(iters)):
+		model.predict(X_test)
+	end_time = time.time()
+
+	#timer = timeit.Timer('model.predict(X_test)', 'from __main__ import model, X_test')
+
+	#time = timer.timeit(int(options.iters))
+
+
+	avg_time = (end_time - start_time) / iters
+	print("Avg Time: ", avg_time)
+
+	throughput = float(X_test.shape[0]) / avg_time
+	kthroughput = throughput / 1000.0
+
+	logging.info("Throughput: %f ksamples / second" % (kthroughput))
+
 
 # Main()
 if __name__ == '__main__':
@@ -215,7 +241,6 @@ if __name__ == '__main__':
 	model = None
 
 	if options.model == 'rf':
-		params['n_jobs'] = 8
 		model = RandomForestClassifier(**params)
 	elif options.model == 'brt':
 		model = GradientBoostingClassifier(**params)
@@ -258,6 +283,9 @@ if __name__ == '__main__':
 
 	# Write out the test data for testing with the automata
 	dump_test(X_test, y_test, "testing_data.pickle")
+
+	# Get throughput results
+	get_throughput(model, X_test, 100)
 
 	if options.report is not None:
 		write_report(options.report, report_dict)

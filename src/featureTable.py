@@ -159,6 +159,8 @@ class FeatureTable(object):
 		if short:
 			X = X[:100]
 
+		print "Writing %d samples to input file" % X.shape[0]
+
 		num_bytes_per_class = 0
 
 		# Open up the output file

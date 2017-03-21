@@ -445,6 +445,6 @@ if __name__ == '__main__':
     X_test, y_test = load_test("testing_data.pickle")
 
     # If we're using quickrank, are features are based at index = 1, instead of 0
-    ft.input_file(X_test, "input_file.bin", onebased=quickrank, short=True)
+    ft.input_file(X_test, "input_file.bin", onebased=quickrank, short=False)
 
     logging.info("Done!")

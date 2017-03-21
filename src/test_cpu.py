@@ -7,6 +7,7 @@ from optparse import OptionParser
 import logging
 import pickle
 import timeit
+import time
 
 # Turn on logging; let's see what all is going on
 logging.basicConfig(format='%(asctime)s : %(message)s', level=logging.INFO)
@@ -49,11 +50,18 @@ if __name__ == '__main__':
 	X_test, y_test = load_test(options.test)
 	logging.info("Test Data: %d samples x %d features" % (X_test.shape))
 
-	timer = timeit.Timer('model.predict(X_test)', 'from __main__ import model, X_test')
+	start_time = time.time()
+	for i in range(int(options.iters)):
+		model.predict(X_test)
+	end_time = time.time()
 
-	time = timer.timeit(int(options.iters))
+	#timer = timeit.Timer('model.predict(X_test)', 'from __main__ import model, X_test')
 
-	avg_time = time / options.iters
+	#time = timer.timeit(int(options.iters))
+
+
+	avg_time = (end_time - start_time) / options.iters
+	print("Avg Time: ", avg_time)
 
 	throughput = float(X_test.shape[0]) / avg_time
 	kthroughput = throughput / 1000.0
