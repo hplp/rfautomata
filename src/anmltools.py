@@ -118,19 +118,22 @@ def generate_anml(chains, feature_table, value_map, anml_filename, reverse_value
 		# The last feature will be accepted from the end_loop ste (remember offset + 1)
 		#last_feature = feature_table.features_[feature_table.end_loop_ + 1]
 
-		# Reporting STE
-		ste_id = "%dt_%dl_r" % (chain.tree_id_, chain.chain_id_)
-
 		# For quickrank or any model where the values are not indexes into another list
 		if value_map is not None:
 
 			# Look up the index assigned ot the value
 			report_code = value_map[chain.value_]
 
+			# Reporting STE ID
+			ste_id = "%dt_%dl_%dr" % (chain.tree_id_, chain.chain_id_, report_code)
+
 		else:
 
 			# 1 offset needed because the AP can't handle '0' report codes
 			report_code = chain.value_ + 1
+
+			# Reporting STE ID
+			ste_id = "%dt_%dl_%dr" % (chain.tree_id_, chain.chain_id_, report_code)
 
 		ste = anml_net.AddSTE(report_symbol, AnmlDefs.NO_START, anmlId=ste_id, reportCode=report_code)
 
