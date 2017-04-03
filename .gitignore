@@ -2,6 +2,7 @@ data/MSLR/
 data/ocr/
 models/MSLR/
 models/ocr/
+models/
 *.pyc
 *.pickle
 src/model.*
