@@ -21,7 +21,6 @@
 '''
 
 # Utility Imports
-import sys
 from optparse import OptionParser
 import logging
 import pickle
@@ -30,12 +29,12 @@ import numpy as np
 # Automata Imports
 from chain import *
 from featureTable import *
-import plot
 import quickrank as qr
 from anmltools import *
 
 # Turn on logging; let's see what all is going on
 logging.basicConfig(format='%(asctime)s : %(message)s', level=logging.INFO)
+
 
 # Load a sklearn model from a file
 def load_model(modelfile):
@@ -46,14 +45,16 @@ def load_model(modelfile):
 
     return model
 
+
 # Load testing data
 def load_test(testfile):
 
-    #Read the testing data in to be used to generate a symbol file
+    # Read the testing data in to be used to generate a symbol file
     with open(testfile, 'rb') as f:
         X_test, y_test = pickle.load(f)
 
     return X_test, y_test
+
 
 # Dump pickle file containing chains, ft, value_map
 def dump_cftvm(chains, ft, value_map, reverse_value_map, filename):
@@ -63,6 +64,7 @@ def dump_cftvm(chains, ft, value_map, reverse_value_map, filename):
 
     return 0
 
+
 # Load the chains, FT and value map from a file
 def load_cftvm(cftFile):
 
@@ -70,6 +72,7 @@ def load_cftvm(cftFile):
         chains, ft, value_map, reverse_value_map = pickle.load(f)
 
     return chains, ft, value_map, reverse_value_map
+
 
 # Convert tree to chains (for scikit-learn models)
 def tree_to_chains(tree, tree_id, chains, threshold_map, values):
@@ -82,7 +85,7 @@ def tree_to_chains(tree, tree_id, chains, threshold_map, values):
     if feature not in threshold_map:
         threshold_map[feature] = [threshold]
 
-    # If the feature has already been seen, check to see if this is a unique threshold
+    # If feature already seen, check to see if this is a unique threshold
     elif threshold not in threshold_map[feature]:
         threshold_map[feature].append(threshold)
 
@@ -92,12 +95,14 @@ def tree_to_chains(tree, tree_id, chains, threshold_map, values):
 
     # Let's create a 'left' chain from the root
     left_chain = Chain(tree_id)
-    root_node = Node(feature, threshold, False) # This is the root node -> left decision
+    # This is the root node -> left decision
+    root_node = Node(feature, threshold, False)
     left_chain.add_node(root_node)
 
     # Let's create a 'right' chain from the root
     right_chain = Chain(tree_id)
-    root_node = Node(feature, threshold, True) # This is the root node -> right decision
+    # This is the root node -> right decision
+    root_node = Node(feature, threshold, True)
     right_chain.add_node(root_node)
 
     # We have our left chain; let's recurse!
@@ -108,6 +113,7 @@ def tree_to_chains(tree, tree_id, chains, threshold_map, values):
 
     # Ok we're done here
     return
+
 
 # Recursive function to convert trees into chains
 def recurse(tree, index, temp_chain, threshold_map, values):
@@ -123,14 +129,17 @@ def recurse(tree, index, temp_chain, threshold_map, values):
 
         # Have we seen this leaf node value before?
         if value not in values:
-            values.append(value)    # We have a new leaf up in here!
+            # We have a new leaf up in here!
+            values.append(value)
 
-        temp_chain.set_value(value) # Set the value of the chain
+        # Set the value of the chain
+        temp_chain.set_value(value)
 
-        return [temp_chain]         # This returns the chain as a single value list
+        # This returns the chain as a single value list
+        return [temp_chain]
 
     # If we're not a leaf, we got children!
-    else:                           # We can do this because all trees with children have both
+    else:
 
         left = tree.children_left[index]
         right = tree.children_right[index]
@@ -146,7 +155,7 @@ def recurse(tree, index, temp_chain, threshold_map, values):
         left_chain = temp_chain
         right_chain = left_chain.copy()
 
-                    # feature, threshold, gt
+        # feature, threshold, gt
         node_l = Node(feature, threshold, False)
         left_chain.add_node(node_l)
 
@@ -157,19 +166,23 @@ def recurse(tree, index, temp_chain, threshold_map, values):
         return recurse(tree, left, left_chain, threshold_map, values) + \
             recurse(tree, right, right_chain, threshold_map, values)
 
+
 # Set the character sets of each node in the chains
 def set_character_sets(chain, ft):
 
-     # Iterate through all nodes,
+    # Iterate through all nodes
     for node in chain.nodes_:
 
-        # Let us build a character set list for this node; one character set per STE assigned to node
+        # Build character set list for this node
+        # one character set per STE assigned to node
         character_sets = []
 
         # Grab STE labels associated with feature; make a copy
-        ranges = list(ft.get_ranges(node.feature_)) # [(ste, start, end)]
+        # [(ste, start, end)]
+        ranges = list(ft.get_ranges(node.feature_))
 
-        found = False # Haven't found our 'range' yet
+        # Haven't found our 'range' yet
+        found = False
 
         # If this STE accepts <=
         if not node.gt_:
@@ -180,30 +193,33 @@ def set_character_sets(chain, ft):
                 # Each STE assigned to this feature needs its own character set
                 character_set = []
 
-                # Grab the labels assigned to the range for this feature in this STE
+                # Grab labels assigned to range for this feature in this STE
                 labels = range(start, end)
 
                 # Also grab the thresholds assigned to the feature at this ste
                 thresholds = ft.stes_[ste][start:end]
 
-                #print " <= ", node.threshold_
-                #print "Thresh: ", thresholds
-                #print "Labels: ", labels
+                # print " <= ", node.threshold_
+                # print "Thresholds: ", thresholds
+                # print "Labels: ", labels
 
-                assert len(labels) == len(thresholds), "Zipping labels and thresholds is gonna fail :("
+                assert len(labels) == len(thresholds),\
+                    "Zipping labels and thresholds is gonna fail :("
 
-                # If the range was discovered in a previous bin, we're going with -2
+                # If range was discovered in a previous bin, -2
                 if found:
 
-                    # We'll only accept the '-2' flag (meaning, not in any of these ranges (for this STE))
+                    # Only accept '-2' flag; not in any ranges (for this STE))
                     character_set.append(labels[-1])
 
-                    assert thresholds[-1] == -2, "The last label for this bin is not -2, it's %d" % (labels[-1])
+                    assert thresholds[-1] == -2,\
+                        "The last label for this bin is not -2, it's %d" %\
+                        (labels[-1])
                     assert character_set == [labels[-1]]
 
                 else:
 
-                    # Go from the first (smallest) to the last (largest) label for this bin
+                    # Go from  first (smallest) to the last (largest) label
                     for label, threshold_limit in zip(labels, thresholds):
 
                         # We accept this label, because its <= threshold
@@ -228,7 +244,7 @@ def set_character_sets(chain, ft):
         else:
 
             # Invert the ranges, to start from the largest features
-            # This means that we'll need to reverse our character sets at the end
+            # Means we'll need to reverse our character sets at the end
             ranges.reverse()
 
             # Go through each STE from the larges to the smallest feature
@@ -237,32 +253,34 @@ def set_character_sets(chain, ft):
                 character_set = []
 
                 # Reversed labels
-                labels = range(end - 1 , start - 1, -1)
+                labels = range(end - 1, start - 1, -1)
 
                 # We're going throught the thresholds from back to front
                 thresholds = ft.stes_[ste][start:end]
                 thresholds.reverse()
 
-                #print "> Threshold: ", node.threshold_
-                #print "Thresholds: ", thresholds
-                #print "Labels: ", labels
+                # print "> Threshold: ", node.threshold_
+                # print "Thresholds: ", thresholds
+                # print "Labels: ", labels
 
-                assert len(labels) == len(thresholds), "Zipping labels and thresholds is gonna fail :("
+                assert len(labels) == len(thresholds),\
+                    "Zipping labels and thresholds is gonna fail :("
 
-                # If the range was discovered in a previous bin, we're going with -2
+                # If range was discovered in a previous bin, -2
                 if found:
 
                     # We'll only accept the '-2' flag
                     character_set.append(labels[0])
 
-                    assert thresholds[0] == -2, "The last label for this bin is not -2"
+                    assert thresholds[0] == -2,\
+                        "The last label for this bin is not -2"
 
                 else:
 
-                    # Go from the last (largest) to the first (smallest) label for this bin
+                    # Go from last (largest) to first (smallest) label
                     for label, threshold_limit in zip(labels, thresholds):
 
-                        # We expect to run into -2 before getting outside of our range; ignore it
+                        # Expect -2 before outside of our range; ignore it
                         if threshold_limit == -2:
                             continue
 
@@ -288,13 +306,15 @@ def set_character_sets(chain, ft):
 
             character_sets.reverse()
 
-        assert len(ft.feature_pointer_[node.feature_]) == len(character_sets), "character sets aren't the right length"
+        assert len(ft.feature_pointer_[node.feature_]) == len(character_sets),\
+            "character sets aren't the right length"
 
         for c_s in character_sets:
             c_s.sort()
 
         # Set the node's character sets
         node.set_character_sets(character_sets)
+
 
 # Main()
 if __name__ == '__main__':
@@ -304,15 +324,21 @@ if __name__ == '__main__':
     # Parse Command Line Arguments
     usage = '%prog [options][text]'
     parser = OptionParser(usage)
-    parser.add_option('-m', '--model', type='string', dest='model', help='Input SKLEARN model pickle file')
-    parser.add_option('-a', '--anml', type='string', dest='anml', default='model.anml', help='ANML output filename')
-    parser.add_option('-f', '--fsm', type='string', dest='fsm', help='FSM filename for compiling')
-    parser.add_option('--chain-ft-vm', type='string', dest='cftvm', help="Filename of chains and feature table pickle")
-    parser.add_option('--spf', action='store_true', default=False, dest='spf', help='Use one STE per Feature')
-    parser.add_option('-v', '--verbose', action='store_true', default=False, dest='verbose', help='Verbose')
+    parser.add_option('-m', '--model', type='string', dest='model',
+                      help='Input SKLEARN model pickle file')
+    parser.add_option('-a', '--anml', type='string', dest='anml',
+                      default='model.anml', help='ANML output filename')
+    parser.add_option('-f', '--fsm', type='string', dest='fsm',
+                      help='FSM filename for compiling')
+    parser.add_option('--chain-ft-vm', type='string', dest='cftvm',
+                      help="Filename of chains and feature table pickle")
+    parser.add_option('--spf', action='store_true', default=False, dest='spf',
+                      help='Use one STE per Feature')
+    parser.add_option('-v', '--verbose', action='store_true', default=False,
+                      dest='verbose', help='Verbose')
     options, args = parser.parse_args()
 
-    # This allows us to test the ANML code faster by loading our converted data structures
+    # Allows us to test ANML code faster by loading converted data structures
     if options.cftvm is not None:
         chains, ft, value_map, reverse_value_map = load_cftvm(options.cftvm)
 
@@ -344,10 +370,11 @@ if __name__ == '__main__':
                 trees = [dtc.tree_ for dtc in model.estimators_]
 
         else:
-            raise ValueError("No valid model file; provide -m <model filename>")
+            raise ValueError("No valid model; provide -m <model filename>")
             exit(-1)
 
-        logging.info("Grabbed %d constituent trees to be 'chained'" %len(trees))
+        logging.info("Grabbed %d constituent trees to be 'chained'" %
+                     len(trees))
 
         # Convert all trees to chains
         chains = []
@@ -370,7 +397,8 @@ if __name__ == '__main__':
             # Here is where we generate the chains from the trees
             for tree_id, tree_weight, tree_split in trees:
 
-                qr.tree_to_chains(tree_id, tree_weight, tree_split, chains, threshold_map, values)
+                qr.tree_to_chains(tree_id, tree_weight, tree_split,
+                                  chains, threshold_map, values)
 
             values.sort()
 
@@ -385,7 +413,8 @@ if __name__ == '__main__':
 
             classes = model.classes_
 
-            logging.info("%d unique classifications available: %s" % (len(classes), str(model.classes_)))
+            logging.info("%d unique classifications available: %s" %
+                         (len(classes), str(model.classes_)))
 
             for tree_id, tree in enumerate(trees):
 
@@ -394,8 +423,10 @@ if __name__ == '__main__':
             logging.info("There are %d chains" % len(chains))
 
             for _i in values:
-                #value_map[classes[_i]] = _i + 1
-                value_map = None # We don't need a value map
+                # value_map[classes[_i]] = _i + 1
+
+                # We don't need a value map
+                value_map = None
                 reverse_value_map[_i + 1] = classes[_i]
 
         logging.info("Done converting trees to chains; now sorting")
@@ -406,15 +437,16 @@ if __name__ == '__main__':
             chain.set_chain_id(chain_id)
 
         # Sort the thresholds for all features
-        for f,t in threshold_map.items():
+        for f, t in threshold_map.items():
             t.sort()
 
         if options.verbose:
-            logging.info("There are %d features in the threshold map [%d-%d]" %\
-                (len(threshold_map.keys()), min(threshold_map.keys()), max(threshold_map.keys())))
+            logging.info("There are %d features in the threshold map [%d-%d]" %
+                         (len(threshold_map.keys()), min(threshold_map.keys()),
+                          max(threshold_map.keys())))
 
         # Let's look at the threshold distribution if verbose
-        #if options.verbose:
+        # if options.verbose:
         #   plot.plot_thresholds(threshold_map)
 
         logging.info("Building the Feature Table")
@@ -430,13 +462,15 @@ if __name__ == '__main__':
             set_character_sets(chain, ft)
             chain.sort_and_combine()
 
-        logging.info("Dumping Chains, Feature Table, Value Map and Reverse Value Map to pickle")
+        logging.info("Dumping Chains, Feature Table,\
+            Value Map and Reverse Value Map to pickle")
 
-        #dump_cftvm(chains, ft, value_map,reverse_value_map, 'chains_ft_vm_rvm.pickle')
+        # dump_cftvm(chains, ft, value_map,reverse_value_map,
+        # 'chains_ft_vm_rvm.pickle')
 
         logging.info("Done writing out files")
 
-    logging.info("Generating ANML")
+    logging.info("Generating ANML for %d chains" % (len(chains)))
 
     generate_anml(chains, ft, value_map, options.anml, naive=options.spf)
 
@@ -444,7 +478,7 @@ if __name__ == '__main__':
 
     X_test, y_test = load_test("testing_data.pickle")
 
-    # If we're using quickrank, are features are based at index = 1, instead of 0
+    # If using quickrank, are features are based at index = 1, instead of 0
     ft.input_file(X_test, "input_file.bin", onebased=quickrank, short=False)
 
     logging.info("Done!")
