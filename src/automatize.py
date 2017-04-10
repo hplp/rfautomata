@@ -31,6 +31,7 @@ from chain import *
 from featureTable import *
 import quickrank as qr
 from anmltools import *
+import gputools
 
 # Turn on logging; let's see what all is going on
 logging.basicConfig(format='%(asctime)s : %(message)s', level=logging.INFO)
@@ -334,6 +335,8 @@ if __name__ == '__main__':
                       help="Filename of chains and feature table pickle")
     parser.add_option('--spf', action='store_true', default=False, dest='spf',
                       help='Use one STE per Feature')
+    parser.add_option('--gpu', action='store_true', default=False, dest='gpu',
+                      help='Generate GPU compatible chains and output files')
     parser.add_option('-v', '--verbose', action='store_true', default=False,
                       dest='verbose', help='Verbose')
     options, args = parser.parse_args()
@@ -470,15 +473,24 @@ if __name__ == '__main__':
 
         logging.info("Done writing out files")
 
-    logging.info("Generating ANML for %d chains" % (len(chains)))
+    if options.gpu:
 
-    generate_anml(chains, ft, value_map, options.anml, naive=options.spf)
+        logging.info("Generating %d GPU chains" % (len(chains)))
+        gputools.gpu_chains(chains, ft, value_map, options.anml,
+                            naive=options.spf)
+
+    else:
+
+        logging.info("Generating ANML file with%d chains" % (len(chains)))
+
+        generate_anml(chains, ft, value_map, options.anml, naive=options.spf)
 
     logging.info("Dumping test file")
 
     X_test, y_test = load_test("testing_data.pickle")
 
     # If using quickrank, are features are based at index = 1, instead of 0
-    ft.input_file(X_test, "input_file.bin", onebased=quickrank, short=False)
+    ft.input_file(X_test, "input_file.bin", onebased=quickrank,
+                  short=False, delimited=not options.gpu)
 
     logging.info("Done!")

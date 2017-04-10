@@ -16,7 +16,8 @@ import logging
 logging.basicConfig(format='%(asctime)s : %(message)s', level=logging.INFO)
 
 
-# Get a valid ordering of features; this is the order in which the input is streamed
+# Get valid ordering of features
+# this is the order in which the input is streamed
 def getordering(ft):
 
     # Keep track of the features assigned to each STE
@@ -44,7 +45,9 @@ def getordering(ft):
     # All STEs with a single feature (not part of the loop)
     for _i in range(0, ft.start_loop_):
 
-        assert len(stes[_i]) == 1, "Bad assumption about size of STE allocations"
+        assert len(stes[_i]) == 1,\
+            "Bad assumption about size of STE allocations"
+
         permutation.append(stes[_i].pop())
 
     index = ft.start_loop_
@@ -67,16 +70,20 @@ def getordering(ft):
     # Return the permutation
     return permutation
 
+
 '''
     Combine the feature address spaces to best utilize STEs
 '''
+
+
 def compact(threshold_map, priority='runtime', verbose=True):
 
     start_loop = None
     end_loop = None
 
     if verbose:
-        logging.info("Running compact() on %d features" % len(threshold_map.keys()))
+        logging.info("Running compact() on %d features" %
+                     len(threshold_map.keys()))
 
     # Set maximum bin size (in the case of an STE its 2^8 - 1)
     # [0 - 254] are allowed (which counts the extra -1)
@@ -91,8 +98,10 @@ def compact(threshold_map, priority='runtime', verbose=True):
     feature_pointer = {}
 
     # Make (feature, len(thresholds)) tuples to be ordered by len(thresholds)
-    # Sort tuples of (feature, threshold_count) by threshold_count from largest -> smallest
-    threshold_counts = [(f, len(thresholds)) for f, thresholds in threshold_map.iteritems()]
+    # Sort tuples (feature, threshold_count)
+    #   by threshold_count from largest -> smallest
+    threshold_counts = [(f, len(thresholds)) for
+                        f, thresholds in threshold_map.iteritems()]
     threshold_counts.sort(key=lambda x: x[1], reverse=True)
 
     print threshold_counts
@@ -100,37 +109,49 @@ def compact(threshold_map, priority='runtime', verbose=True):
     if verbose:
         logging.info("Maximum Binsize set to %d thresholds" % BINSIZE)
         logging.info("Initialized stes[] and feature_pointer")
-        logging.info("Created sorted threshold_counts that contains (feature, num thresholds)")
+        logging.info("Created sorted threshold_counts\
+            containing (feature, num thresholds)")
 
-    # This function goes through the features and grabs all 'large' features that take
-    # one full STE or more; it updates the threshold_counts by removing those features
-    # and stes variable with the address table
+    # This function grabs all 'large' features that take
+    # one full STE or more, updating the threshold_counts by
+    # removing those features and stes variable with the address table
 
     if verbose:
         logging.info("Attempting to pack 'large' features into 1 or more bins")
 
-    big_features(stes, feature_pointer, threshold_map, threshold_counts, BINSIZE, verbose)
+    big_features(stes, feature_pointer, threshold_map, threshold_counts,
+                 BINSIZE, verbose)
 
-    if len(threshold_counts) > 0: # This means we have remaining small features
+    # This means we have remaining small features
+    if len(threshold_counts) > 0:
 
         if verbose:
-            logging.info("We still have %d features left to put into bins: \n%s" % \
-                (len(threshold_counts),str([(_f,_t) for _f,_t in threshold_counts])))
+            logging.info("We still have %d features left\
+                          to put into bins: \n%s" %
+                         (len(threshold_counts), str([(_f, _t) for
+                          _f, _t in threshold_counts])))
 
-        start_loop, end_loop = small_features(stes, feature_pointer, threshold_map, threshold_counts, BINSIZE, verbose, priority=priority)
+        start_loop, end_loop = small_features(stes, feature_pointer,
+                                              threshold_map, threshold_counts,
+                                              BINSIZE, verbose,
+                                              priority=priority)
 
-    # Run verification to make sure the resulting feature pointer and stes are right
+    # Verification to make sure resulting feature pointer and stes are right
     verification(threshold_map, feature_pointer, stes, verbose)
 
     return feature_pointer, stes, start_loop, end_loop
 
+
 '''
-    The purpose of this function is to strip out the features that require one or more full STEs
+    The urpose of this function is to strip out the features
+    that require one or more full STEs
 '''
-def big_features(stes, feature_pointer, threshold_map, threshold_counts, BINSIZE, verbose):
+
+
+def big_features(stes, feature_pointer, threshold_map, threshold_counts,
+                 BINSIZE, verbose):
 
     # As we assign big features to STEs, we need to keep track to remove them
-    # We do this, to not remove items from the threshold_counts as we iterate through it
     counts_to_remove = []
 
     # Start from largest feature threshold count to smallest
@@ -142,22 +163,25 @@ def big_features(stes, feature_pointer, threshold_map, threshold_counts, BINSIZE
             if verbose:
                 logging.info("Found feature %d to use exactly one bin!" % _f)
 
-            update_stes(stes, feature_pointer, threshold_map, threshold_counts, [_f])
+            update_stes(stes, feature_pointer, threshold_map,
+                        threshold_counts, [_f])
 
         # If this is a LARGE feature (many thresholds), split 'er up
-        # For the time being, assign each of these sub-thresholds to its own STE ( *This is not ideal )
+        # For the time being, assign each of these sub-thresholds to
+        # its own STE ( *This is not ideal )
         elif _t > BINSIZE:
 
             if verbose:
-                logging.info("Found feature %d to have %d thresholds! (>=BINSIZE))" % (_f,_t))
+                logging.info("Found feature %d to have %d thresholds!\
+                             (>=BINSIZE))" % (_f, _t))
 
             # We're going to have to remove this feature from the list
-            counts_to_remove.append((_f,_t))
+            counts_to_remove.append((_f, _t))
 
             # New list of STEs for the feature
             feature_pointer[_f] = []
 
-            # We're going to have multiple STE tuples assigned to this particular feature
+            # We're going to have multiple STE tuples assigned to this feature
             ste = None
             start = None
             end = None
@@ -170,7 +194,7 @@ def big_features(stes, feature_pointer, threshold_map, threshold_counts, BINSIZE
                 sub_thresholds = threshold_map[_f][i:i + BINSIZE]
 
                 # If, however, the feature is bigger, we're going to need one
-                # Don't care per STE, because only one STE will have the valid range
+                # 'don't care' per STE; only one STE will have the range
                 sub_thresholds.append(-2)
 
                 # Assign the full STE address space to the feature
@@ -179,10 +203,12 @@ def big_features(stes, feature_pointer, threshold_map, threshold_counts, BINSIZE
                 end = len(sub_thresholds)
 
                 # Make sure we did this right
-                assert end <= BINSIZE + 1, "Start:%d, End:%d, |STE| > %d!" % (start, end, BINSIZE)
-                assert sub_thresholds[-1] == -2, "The end of the sub_threshold is not -2!"
+                assert end <= BINSIZE + 1,\
+                    "Start:%d, End:%d, |STE| > %d!" % (start, end, BINSIZE)
+                assert sub_thresholds[-1] == -2,\
+                    "The end of the sub_threshold is not -2!"
 
-                # Update the feature_pointer to include the STE and start,end addresses
+                # Update feature_pointer to include STE and start,end addresses
                 feature_pointer[_f].append((ste, start, end))
                 stes.append(sub_thresholds)
 
@@ -193,7 +219,7 @@ def big_features(stes, feature_pointer, threshold_map, threshold_counts, BINSIZE
             # If we have exactly BINSIZE thresholds left to pack...
             if _t == BINSIZE:
 
-                # This is awkward; we're only going to be able to fit BINSIZE - 1 into the next bin
+                # Awkward; we're only going to fit BINSIZE - 1 into next bin
                 sub_thresholds = threshold_map[_f][i:(i + BINSIZE - 1)]
                 sub_thresholds.append(-2)
 
@@ -202,7 +228,8 @@ def big_features(stes, feature_pointer, threshold_map, threshold_counts, BINSIZE
                 end = len(sub_thresholds)
 
                 # Sanity check
-                assert end <= BINSIZE + 1, "Start:%d, End:%d, |STE| > %d!" % (start, end, BINSIZE)
+                assert end <= BINSIZE + 1,\
+                    "Start:%d, End:%d, |STE| > %d!" % (start, end, BINSIZE)
 
                 feature_pointer[_f].append((ste, start, end))
                 stes.append(sub_thresholds)
@@ -214,7 +241,7 @@ def big_features(stes, feature_pointer, threshold_map, threshold_counts, BINSIZE
             # If there's anything left,...
             if _t > 0:
 
-                # We know we have less than BINSIZE thresholds left... so pack em up!
+                # We have less than BINSIZE thresholds left, so pack em up!
                 sub_thresholds = threshold_map[_f][i:]
                 sub_thresholds.append(-1)
                 sub_thresholds.append(-2)
@@ -224,7 +251,8 @@ def big_features(stes, feature_pointer, threshold_map, threshold_counts, BINSIZE
                 end = len(sub_thresholds)
 
                 # Last sanity check
-                assert end <= BINSIZE + 1, "Start:%d, End:%d, |STE| > %d!" % (start, end, BINSIZE)
+                assert end <= BINSIZE + 1,\
+                    "Start:%d, End:%d, |STE| > %d!" % (start, end, BINSIZE)
 
                 feature_pointer[_f].append((ste, start, end))
                 stes.append(sub_thresholds)
@@ -234,25 +262,30 @@ def big_features(stes, feature_pointer, threshold_map, threshold_counts, BINSIZE
             break
 
     if verbose:
-        logging.info("Found %d features that take 1 or more full bins" % len(counts_to_remove))
+        logging.info("Found %d features that take 1 or more full bins" %
+                     len(counts_to_remove))
 
     for removable in counts_to_remove:
         threshold_counts.remove(removable)
 
     if verbose:
         if len(counts_to_remove) > 0:
-            logging.info("Resulting feature pointer: \n\n%s\n" % str(feature_pointer))
-            logging.info("Resulting bin address spacing(%d bins): \n\n%s\n" % (len(stes),str(stes)))
+            logging.info("Resulting feature pointer: \n\n%s\n" %
+                         str(feature_pointer))
+            logging.info("Resulting bin address spacing(%d bins): \n\n%s\n" %
+                         (len(stes), str(stes)))
+
 
 '''
-    The goal here is to cram the remaining thresholds into as few bins as possible
+    The goal is to cram the remaining thresholds into as few bins as possible
     Such that there are an equal number of features per bin
     and that the address space is efficiently used.
         priority={'runtime', 'capacity'}
 '''
 
-def small_features(stes, feature_pointer, threshold_map, threshold_counts, BINSIZE, verbose, priority='runtime'):
 
+def small_features(stes, feature_pointer, threshold_map, threshold_counts,
+                   BINSIZE, verbose, priority='runtime'):
 
     # In the future we will support 'runtime' and 'capacity' optimization
     if priority != 'runtime':
@@ -263,13 +296,15 @@ def small_features(stes, feature_pointer, threshold_map, threshold_counts, BINSI
             exit()
 
     # We'll start at the minimum possible number of STEs that could work out
-    ste_count = int(math.ceil(float(reduce(lambda x, y: x + y, [x[1] for x in threshold_counts])) \
-        / float(BINSIZE)))
+    ste_count = int(math.ceil(float(reduce(lambda x, y: x + y, [x[1] for
+                                           x in threshold_counts])) /
+                              float(BINSIZE)))
 
     assert ste_count > 0
 
     if verbose:
-        logging.info("Found that %d is the minimum number of possible STEs to fit all remaining features" % ste_count)
+        logging.info("Found that %d is the min number of STEs to fit \
+                     all remaining features" % ste_count)
 
     iteration_counter = 1
 
@@ -277,7 +312,8 @@ def small_features(stes, feature_pointer, threshold_map, threshold_counts, BINSI
     while True:
 
         if verbose:
-            logging.info("Iteration %d: attempting %d bins with %d features" % (iteration_counter, ste_count, len(threshold_counts)))
+            logging.info("Iteration %d: attempting %d bins with %d features" %
+                         (iteration_counter, ste_count, len(threshold_counts)))
         iteration_counter += 1
 
         # Use a min heap to keep track of bins and always add the next
@@ -285,7 +321,8 @@ def small_features(stes, feature_pointer, threshold_map, threshold_counts, BINSI
         heap = []
 
         if verbose:
-            logging.info("Initializing %d empty bin(s) to be filled" % ste_count)
+            logging.info("Initializing %d empty bin(s) to be filled" %
+                         ste_count)
 
         # Add <ste_count> empty 'bins' to our priority queue
         for i in range(ste_count):
@@ -293,7 +330,8 @@ def small_features(stes, feature_pointer, threshold_map, threshold_counts, BINSI
             heappush(heap, (0, []))
 
         if verbose:
-            logging.info("Filling bins by putting largest item in most empty bin")
+            logging.info("Filling bins by putting largest item in \
+                         most empty bin")
 
         # Iterate through all features, and update bins
         # We're updating the bins such that the emptiest is filled first
@@ -313,14 +351,15 @@ def small_features(stes, feature_pointer, threshold_map, threshold_counts, BINSI
         # Now let's pop off the bins
         for i in range(ste_count):
 
-            size, features = heappop(heap) # Returns (size, features)
+            # Returns (size, features)
+            size, features = heappop(heap)
             features.sort()
             feature_list.append(features)
             sizes.append(size)
-            num_features = len(features)
 
             if verbose:
-                logging.info("STE %d stats: \tsize=%d, %d features=%s" % (i, size, len(features), str(features)))
+                logging.info("STE %d stats: \tsize=%d, %d features=%s" %
+                             (i, size, len(features), str(features)))
 
         if verbose:
             logging.info("Max Size: %d" % max(sizes))
@@ -334,12 +373,13 @@ def small_features(stes, feature_pointer, threshold_map, threshold_counts, BINSI
             if len(_f) == 1:
 
                 if verbose:
-                    logging.info("Found that feature %d needed a full bin!" % _f[0])
+                    logging.info("Found feature %d needed a full bin!" % _f[0])
 
                 # New list of STEs for the feature
-                update_stes(stes, feature_pointer, threshold_map, threshold_counts, _f)
+                update_stes(stes, feature_pointer, threshold_map,
+                            threshold_counts, _f)
 
-                # Because we've removed a full-STE feature, we can reduce the STE count
+                # Because we removed a full-STE feature, reduce the STE count
                 ste_count -= 1
 
         # Remove from feature_list
@@ -349,7 +389,8 @@ def small_features(stes, feature_pointer, threshold_map, threshold_counts, BINSI
         if len(feature_list) == 0:
 
             if verbose:
-                logging.info("All features required one bin each; we're done here")
+                logging.info("All features required one bin each; \
+                             we're done here")
             return (None, None)
 
         # If the most full STE is not over-full...
@@ -357,7 +398,8 @@ def small_features(stes, feature_pointer, threshold_map, threshold_counts, BINSI
 
             if verbose:
                 logging.info("Binsize: %d" % BINSIZE)
-                logging.info("We managed to fit all features into %d bins" % ste_count)
+                logging.info("We managed to fit all features into %d bins" %
+                             ste_count)
 
             num_features_per_ste = [len(x) for x in feature_list]
 
@@ -367,9 +409,13 @@ def small_features(stes, feature_pointer, threshold_map, threshold_counts, BINSI
             if max(num_features_per_ste) - min(num_features_per_ste) > 1:
 
                 if verbose:
-                    logging.info("The bins are not balanced! (min=%d,max=%d) features in a bin" % (min(num_features_per_ste),max(num_features_per_ste)))
+                    logging.info("The bins are not balanced! (min=%d,max=%d) \
+                                 features in a bin" %
+                                 (min(num_features_per_ste),
+                                  max(num_features_per_ste)))
 
-                if balance(feature_list, sizes, threshold_map, threshold_counts, BINSIZE, verbose):
+                if balance(feature_list, sizes, threshold_map,
+                           threshold_counts, BINSIZE, verbose):
 
                     feature_list.sort(key=lambda x: len(x), reverse=True)
 
@@ -377,12 +423,13 @@ def small_features(stes, feature_pointer, threshold_map, threshold_counts, BINSI
                     end_loop = None
 
                     for _f in feature_list:
-                        if len(_f) < len(feature_list[0]) and end_loop == None:
+                        if len(_f) < len(feature_list[0]) and end_loop is None:
                             end_loop = len(stes)
 
-                        update_stes(stes, feature_pointer, threshold_map, threshold_counts, _f)
+                        update_stes(stes, feature_pointer, threshold_map,
+                                    threshold_counts, _f)
 
-                    if end_loop == None:
+                    if end_loop is None:
                         end_loop = len(stes) - 1
 
                     return (start_loop, end_loop)
@@ -404,14 +451,15 @@ def small_features(stes, feature_pointer, threshold_map, threshold_counts, BINSI
 
                 for _f in feature_list:
 
-                    # If the current feature has fewer features than the previous, the last STE must
-                    # serve as the end of the loop
-                    if len(_f) < len(feature_list[0]) and end_loop == None:
+                    # If current feature has fewer features than previous,
+                    # last STE must serve as the end of the loop
+                    if len(_f) < len(feature_list[0]) and end_loop is None:
                         end_loop = len(stes) - 1
 
-                    update_stes(stes, feature_pointer, threshold_map, threshold_counts, _f)
+                    update_stes(stes, feature_pointer, threshold_map,
+                                threshold_counts, _f)
 
-                if end_loop == None:
+                if end_loop is None:
                     end_loop = len(stes) - 1
 
                 return (start_loop, end_loop)
@@ -425,7 +473,10 @@ def small_features(stes, feature_pointer, threshold_map, threshold_counts, BINSI
 
 # Try to balance the STEs so that there are an equal number of features
 # per STE (+/- 1)
-def balance(feature_list, sizes, threshold_map, threshold_counts, BINSIZE, verbose):
+
+
+def balance(feature_list, sizes, threshold_map, threshold_counts,
+            BINSIZE, verbose):
 
     logging.info("Unbalanced feature list: %s" % str(feature_list))
 
@@ -449,7 +500,8 @@ def balance(feature_list, sizes, threshold_map, threshold_counts, BINSIZE, verbo
         num_features = len(ste)
 
         if verbose:
-            print "We're going to remove %d features from ste %d" % ((num_features - min_features), i)
+            print("We're going to remove %d features from ste %d" %
+                  ((num_features - min_features), i))
 
         # Remove the extra features from each STE
         for _ in range(num_features - min_features):
@@ -461,11 +513,12 @@ def balance(feature_list, sizes, threshold_map, threshold_counts, BINSIZE, verbo
             # Update the size of the current STE
             sizes[i] -= (len(threshold_map[feature_to_be_removed]) + 1)
 
-        # Once we've removed the extra features, push the updated STEs to the heap
+        # Once extra features removed, push updated STEs to the heap
         heappush(heap, (sizes[i], ste))
 
     # These should stay ordered; we're simply filtering the ones we care about
-    extra_threshold_counts = [x for x in threshold_counts if x[0] in extra_features]
+    extra_threshold_counts = [x for x in threshold_counts if
+                              x[0] in extra_features]
 
     # Iterate through all extra features and add them to the STEs
     for _f, _t in extra_threshold_counts:
@@ -494,11 +547,15 @@ def balance(feature_list, sizes, threshold_map, threshold_counts, BINSIZE, verbo
     # If we got here without issues, we balanced!
     return True
 
+
 '''
     This function updates stes and feature_pointer variables
     to include the ste assignments made in the features list
 '''
-def update_stes(stes, feature_pointer, threshold_map, threshold_counts, features):
+
+
+def update_stes(stes, feature_pointer, threshold_map,
+                threshold_counts, features):
 
     # Let us use the next STE
     ste = len(stes)
@@ -526,10 +583,11 @@ def update_stes(stes, feature_pointer, threshold_map, threshold_counts, features
 
     stes.append(sub_thresholds)
 
+
 def verification(threshold_map, feature_pointer, stes, verbose):
 
     if verbose:
-        logging.info("Time to run a sanity check on the stes address allocation")
+        logging.info("Time to run sanity check on the stes address allocation")
 
     for f, thresholds in threshold_map.iteritems():
 
@@ -541,10 +599,11 @@ def verification(threshold_map, feature_pointer, stes, verbose):
             ste_index = bins[0][0]
             start = bins[0][1]
             end = bins[0][2]
-            combined_thresholds = stes[ste_index][start:(end-1)]
+            combined_thresholds = stes[ste_index][start:(end - 1)]
 
             assert combined_thresholds == thresholds, \
-                "\nCombined Thresholds: %s\n Threshold Map: %s\n" % (str(combined_thresholds), str(thresholds))
+                "\nCombined Thresholds: %s\n Threshold Map: %s\n" %\
+                (str(combined_thresholds), str(thresholds))
 
         # If this feature is mapped to multiple bins...
         else:
@@ -555,13 +614,16 @@ def verification(threshold_map, feature_pointer, stes, verbose):
 
                 if i == len(bins) - 1:
                     # For the last STE, the last two labels assigned are -1, -2
-                    combined_thresholds.extend(stes[ste_index][start:(end-2)])
+                    combined_thresholds.extend(
+                        stes[ste_index][start:(end - 2)])
                 else:
                     # For all other STEs, the last label is assigned -1
-                    combined_thresholds.extend(stes[ste_index][start:(end-1)])
+                    combined_thresholds.extend(
+                        stes[ste_index][start:(end - 1)])
 
             assert combined_thresholds == thresholds, \
-                "\nCombined Thresholds: %s\n Threshold Map: %s\n" % (str(combined_thresholds), str(thresholds))
+                "\nCombined Thresholds: %s\n Threshold Map: %s\n" %\
+                (str(combined_thresholds), str(thresholds))
 
     if verbose:
         logging.info("Time to run a sanity check on feature_pointer")
@@ -578,24 +640,25 @@ def verification(threshold_map, feature_pointer, stes, verbose):
 
         if len(bins) == 1:
             bin_0 = bins[0]
-            ste_0 = bin_0[0]
             start_0 = bin_0[1]
             end_0 = bin_0[2]
 
             total_address_space = (end_0 - start_0 - 1)
 
             assert len(thresholds) == total_address_space, \
-                "|Thresholds|=%d, |total address space|=%d" % (len(thresholds), total_address_space)
+                "|Thresholds|=%d, |total address space|=%d" %\
+                (len(thresholds), total_address_space)
         else:
             for i, b in enumerate(bins):
 
-                if i == (len(bins) -1):
+                if i == (len(bins) - 1):
                     total_address_space += (b[2] - b[1] - 2)
                 else:
                     total_address_space += (b[2] - b[1] - 1)
 
             assert len(thresholds) == total_address_space, \
-                "|Thresholds|=%d, |total address space|=%d \n%s\n%s" % (len(thresholds), total_address_space, len(thresholds), bins)
+                "|Thresholds|=%d, |total address space|=%d \n%s\n%s" %\
+                (len(thresholds), total_address_space, len(thresholds), bins)
     if verbose:
         logging.info("Feature Pointer looks right!")
 

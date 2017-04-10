@@ -1,10 +1,9 @@
 '''
-	This module is meant for interfacing with the ANML API
+    This module is meant for interfacing with the ANML API
 
     This module contains two functions:
     1. generate_anmL(): Generate ANML from the chains
 
-    2. compile_anml(): Compile the resulting ANML into an FSM for the AP
     ----------------------
     Author: Tom Tracy II
     email: tjt7a@virginia.edu
@@ -14,153 +13,126 @@
     Version 1.0
 '''
 from Anml import *
-#from micronap.sdk import *
-import util
+
 
 # Generate ANML code for the provided chains
-def generate_anml(chains, feature_table, value_map, anml_filename, reverse_value_map=None, naive=False):
+def generate_anml(chains, feature_table, value_map, anml_filename,
+                  reverse_value_map=None, naive=False):
 
-	# Create an automata network
-	#anml = Anml()
-	#anml_net = anml.CreateAutomataNetwork()
+    anml_net = Anml()
 
-	anml_net = Anml()
+    # This code is used to start and report
+    report_symbol = r"[\x%02X]" % 255
 
-	# This code is used to start and report
-	report_symbol = r"[\x%02X]" % 255
+    # Iterate through all chains
+    for chain in chains:
 
-	# Iterate through all chains
-	for chain in chains:
+        # character class assignments for STEs start with '[' and end with ']'
+        character_classes = ['[' for _ste in range(feature_table.ste_count_)]
 
-		# character class assignements for each STE start with '[' and end with ']'
-		character_classes = ['[' for _ste in range(feature_table.ste_count_)]
+        next_node_index = 0
 
-		next_node_index = 0
+        # Iterate through all features in the feature_table
+        for _f in feature_table.features_:
 
-		# Iterate through all features in the feature_table
-		for _f in feature_table.features_:
+            # If we're still pointing to a valid node ...
+            if next_node_index < len(chain.nodes_):
 
-			# If we're still pointing to a valid node ...
-			if next_node_index < len(chain.nodes_):
+                # Grab that next node
+                next_node = chain.nodes_[next_node_index]
 
-				# Grab that next node
-				next_node = chain.nodes_[next_node_index]
+                # If that node has the feature we're looking at...
+                if next_node.feature_ == _f:
 
-				# If that node has the feature we're looking at...
-				if next_node.feature_ == _f:
+                    # If we have multiple STEs assigned to this feature...
+                    ste_index = 0
 
-					# If we have multiple STEs assigned to this feature...
-					ste_index = 0
+                    for _ste, _start, _end in feature_table.get_ranges(_f):
 
-					for _ste, _start, _end in feature_table.get_ranges(_f):
+                        for c in next_node.character_sets[ste_index]:
 
-						for c in next_node.character_sets[ste_index]:
+                            character_classes[_ste] += r"\x%02X" % c
 
-							character_classes[_ste] += r"\x%02X" % c
+                    next_node_index += 1
 
-					next_node_index += 1
+                # If the node does not have the feature we're looking for
+                else:
 
-				# If the node does not have the feature we're looking for
-				else:
+                    for _ste, _start, _end in feature_table.get_ranges(_f):
 
-					for _ste, _start, _end  in feature_table.get_ranges(_f):
+                        # Feature is not part of chain, accept full range
+                        character_classes[_ste] += r"\x%02X-\x%02X" %\
+                            (_start, _end - 1)
 
-						# Because this feature is not part of the chain, accept the full range
-						character_classes[_ste] += r"\x%02X-\x%02X" % (_start, _end - 1)
+            # We're done with the available features in our chain
+            else:
 
-						#for _c in range(_start, _end):
-						#	character_classes[_ste] += r"\x%02X" % _c#r"\x%02X-\x%02X" % (_start, _end - 1)
+                for _ste, _start, _end in feature_table.get_ranges(_f):
 
-			# We're done with the available features in our chain
-			else:
+                    # Because feature not part of chain, accept full range
+                    character_classes[_ste] += r"\x%02X-\x%02X" %\
+                        (_start, _end - 1)
 
-				for _ste, _start, _end  in feature_table.get_ranges(_f):
+        # End character classes with ']'
+        for i in range(len(character_classes)):
+            character_classes[i] += "]"
 
-					# Because this feature is not part of the chain, accept the full range
-					character_classes[_ste] += r"\x%02X-\x%02X" % (_start, _end - 1)
+        # stes for the current chain
+        stes = []
 
-					#for _c in range(_start, _end):
-					#	character_classes[_ste] += r"\x%02X" % _c
+        # Start the chain with an id that ends in _s (for start)
+        ste_id = "%dt_%dl_s" % (chain.tree_id_, chain.chain_id_)
 
-		# End the character classes with ']'
-		for i in range(len(character_classes)):
-			character_classes[i] += "]"
+        # Have a start ste that matches on 255
+        start_ste = anml_net.AddSTE(report_symbol, AnmlDefs.ALL_INPUT,
+                                    anmlId=ste_id, match=False)
 
-		# stes for the current chain
-		stes = []
+        # stes[0] is the start ste that only accepts \xff = 255 in base 10
+        stes.append(start_ste)
 
-		# Start the chain with an id that ends in _s (for start)
-		ste_id = "%dt_%dl_s" % (chain.tree_id_, chain.chain_id_)
+        # Now go through each of the remaining STEs
+        for ste_i in range(feature_table.ste_count_):
 
-		# Have a start ste that matches on 255
-		start_ste = anml_net.AddSTE(report_symbol, AnmlDefs.ALL_INPUT, anmlId=ste_id, match=False)
+            # Give them identifiers based on tree id, chain id, and ste id
+            ste_id = "%dt_%dl_%d" % (chain.tree_id_, chain.chain_id_, ste_i)
 
-		# stes[0] is the start ste that only accepts \xff = 255 in base 10
-		stes.append(start_ste)
+            # Add to the list
+            ste = anml_net.AddSTE(character_classes[ste_i], AnmlDefs.NO_START,
+                                  anmlId=ste_id, match=False)
 
-		# Now go through each of the remaining STEs
-		for ste_i in range(feature_table.ste_count_):
+            # Connect them forward
+            anml_net.AddAnmlEdge(stes[-1], ste, 0)
 
-			# Give them identifiers based on tree id, chain id, and ste id
-			ste_id = "%dt_%dl_%d" % (chain.tree_id_, chain.chain_id_, ste_i)
+            stes.append(ste)
 
-			# Add to the list
-			ste = anml_net.AddSTE(character_classes[ste_i], AnmlDefs.NO_START, anmlId=ste_id, match=False)
+        # Ourur cycle; mapping from end of the chain to the start of the loop
+        anml_net.AddAnmlEdge(stes[-1], stes[feature_table.start_loop_ + 1], 0)
 
-			# Connect them forward
-			anml_net.AddAnmlEdge(stes[-1], ste, 0)
+        # For quickrank
+        if value_map is not None:
 
-			stes.append(ste)
+            # Look up the index assigned ot the value
+            report_code = value_map[chain.value_]
 
-		# This is our cycle; we're mapping from the end of the chain to the start of the loop (remember offset of 1)
-		anml_net.AddAnmlEdge(stes[-1], stes[feature_table.start_loop_ + 1], 0)
+            # Reporting STE ID
+            ste_id = "%dt_%dl_%dr" %\
+                (chain.tree_id_, chain.chain_id_, report_code)
 
-		# The last feature will be accepted from the end_loop ste (remember offset + 1)
-		#last_feature = feature_table.features_[feature_table.end_loop_ + 1]
+        else:
 
-		# For quickrank or any model where the values are not indexes into another list
-		if value_map is not None:
+            # 1 offset needed because the AP can't handle '0' report codes
+            report_code = chain.value_ + 1
 
-			# Look up the index assigned ot the value
-			report_code = value_map[chain.value_]
+            # Reporting STE ID
+            ste_id = "%dt_%dl_%dr" %\
+                (chain.tree_id_, chain.chain_id_, report_code)
 
-			# Reporting STE ID
-			ste_id = "%dt_%dl_%dr" % (chain.tree_id_, chain.chain_id_, report_code)
+        ste = anml_net.AddSTE(report_symbol, AnmlDefs.NO_START,
+                              anmlId=ste_id, reportCode=report_code)
 
-		else:
+        # Need to add 1 to the index, because the first STE is the starting STE
+        anml_net.AddAnmlEdge(stes[feature_table.end_loop_ + 1], ste, 0)
 
-			# 1 offset needed because the AP can't handle '0' report codes
-			report_code = chain.value_ + 1
+        del stes
 
-			# Reporting STE ID
-			ste_id = "%dt_%dl_%dr" % (chain.tree_id_, chain.chain_id_, report_code)
-
-		ste = anml_net.AddSTE(report_symbol, AnmlDefs.NO_START, anmlId=ste_id, reportCode=report_code)
-
-		# Need to add 1 to the index, because the first STE is the starting STE
-		anml_net.AddAnmlEdge(stes[feature_table.end_loop_ + 1], ste, 0)
-
-		del stes
-
-	anml_net.ExportAnml(anml_filename)
-
-# Expect single filename (ANML) or two filenames (ANML, Element File)
-def compile_anml(anml, *filenames):
-
-	if len(filenames) == 0:
-		raise ValueError("Error: No filename[s] specified to compiler!")
-
-	automata_filename = filenames[0]
-
-	if len(filenames) == 1:
-		emap_filename = None
-	elif len(filenames) == 2:
-		emap_filename = filenames[1]
-
-	automata, element_map = anml.CompileAnml(CompileDefs.AP_OPT_SHOW_STATS | CompileDefs.AP_OPT_SHOW_PROGRESS | \
-		CompileDefs.AP_OPT_MERGE_ONE_EXPRESSION)
-
-	automata.save(automata_filename)
-
-	if emap_filename is not None:
-		element_map.SaveElementMap(emap_filename)
+    anml_net.ExportAnml(anml_filename)

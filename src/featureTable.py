@@ -3,9 +3,9 @@
 
     This lookup table has three main purposes:
     1. We use the address spaces to efficiently fit all features into
-    	as few STEs as possible.
+        as few STEs as possible.
     2. We use the resulting lookup table to map feature values to feature
-    	labels.
+        labels.
     3. We use the lookup table to generate input files for the AP.
     ----------------------
     Author: Tom Tracy II
@@ -17,184 +17,192 @@
 '''
 
 # Utility imports
-import copy
 from termcolor import colored
 from random import *
-import math
 from array import *
 import util
 from collections import OrderedDict
 
+
 # Define FeatureTable class
 class FeatureTable(object):
 
-	# Constructor creates one contiguous feature address space
-	def __init__(self, threshold_map, verbose=True):
+    # Constructor creates one contiguous feature address space
+    def __init__(self, threshold_map, verbose=True):
 
-		ordered_threshold_map = OrderedDict(sorted(threshold_map.items(), key=lambda x:int(x[0])))
+        ordered_threshold_map = OrderedDict(sorted(threshold_map.items(),
+                                                   key=lambda x: int(x[0])))
 
-		self.features_ = ordered_threshold_map.keys()
+        self.features_ = ordered_threshold_map.keys()
 
-		# A dictionary from features -> list of thresholds
-		self.threshold_map_ = ordered_threshold_map
+        # A dictionary from features -> list of thresholds
+        self.threshold_map_ = ordered_threshold_map
 
-		# Find the minimum number of stes required to handle the features
-		feature_pointer, stes, start_loop, end_loop = util.compact(self.threshold_map_, verbose=True)
+        # Find the minimum number of stes required to handle the features
+        feature_pointer, stes, start_loop, end_loop =\
+            util.compact(self.threshold_map_, verbose=True)
 
-		# Assign feature_pointer and stes
-		# feature -> [(STE, start, end)]
-		self.feature_pointer_ = feature_pointer
+        # Assign feature_pointer and stes
+        # feature -> [(STE, start, end)]
+        self.feature_pointer_ = feature_pointer
 
-		# List of address spaces by STE
-		self.stes_ = stes
+        # List of address spaces by STE
+        self.stes_ = stes
 
-		# Set the number of stes
-		self.ste_count_ = len(stes)
+        # Set the number of stes
+        self.ste_count_ = len(stes)
 
-		self.start_loop_ = start_loop
-		self.end_loop_ = end_loop
+        self.start_loop_ = start_loop
+        self.end_loop_ = end_loop
 
-		# Get loopy information
-		self.permutation_ = util.getordering(self)
+        # Get loopy information
+        self.permutation_ = util.getordering(self)
 
-		print "Start: %d, End: %d, Permutation: %s" % (self.start_loop_, self.end_loop_, str(self.permutation_))
+        print "Start: %d, End: %d, Permutation: %s" %\
+            (self.start_loop_, self.end_loop_, str(self.permutation_))
 
-	# String representation of the STEs
-	def __str__(self):
-		string = "STE Count: %d\n" % self.ste_count_
+    # String representation of the STEs
+    def __str__(self):
+        string = "STE Count: %d\n" % self.ste_count_
 
-		# Enumerate all features and which STE its mapped to / what range
-		for i, feature in enumerate(self.features_):
-			string += colored("F:%d", 'magenta') % feature
+        # Enumerate all features and which STE its mapped to / what range
+        for i, feature in enumerate(self.features_):
+            string += colored("F:%d", 'magenta') % feature
 
-			for ste, start, end in self.feature_pointer_[feature]:
+            for ste, start, end in self.feature_pointer_[feature]:
 
-				string += "STE:%d,S:%d,E:%d" % (ste, start, end)
-				string += (";") if i != (len(self.features_) - 1) else ("\n\n")
+                string += "STE:%d,S:%d,E:%d" % (ste, start, end)
+                string += (";") if i != (len(self.features_) - 1) else ("\n\n")
 
-		# Enumerate all stes
-		for i, ste in enumerate(self.stes_):
-			string += colored("STE:%d[", 'blue') % i
+        # Enumerate all stes
+        for i, ste in enumerate(self.stes_):
+            string += colored("STE:%d[", 'blue') % i
 
-			# Enumerate all ranges
-			for j, r in enumerate(ste):
-				string += (colored(str(r), 'green') if r != -1 else colored(str(r), 'red'))
-				string += "]"
-				string += ("[") if j != len(ste) - 1 else colored("]", 'blue')
+            # Enumerate all ranges
+            for j, r in enumerate(ste):
+                string += (colored(str(r), 'green') if r != -1 else
+                           colored(str(r), 'red'))
+                string += "]"
+                string += ("[") if j != len(ste) - 1 else colored("]", 'blue')
 
-		return string
+        return string
 
-	# Return the ranges in the address space that corresponds to the start/end of a feature
-	def get_ranges(self, feature):
+    # Return ranges in address space that corresponds to start/end of feature
+    def get_ranges(self, feature):
 
-		return self.feature_pointer_[feature]
+        return self.feature_pointer_[feature]
 
-	# Return the STEs that this feature is mapped to
-	def get_stes(self, feature):
+    # Return the STEs that this feature is mapped to
+    def get_stes(self, feature):
 
-		return [ste for ste, start, end in self.get_ranges(feature)]
+        return [ste for ste, start, end in self.get_ranges(feature)]
 
-	# Return list of tuples [(ste, index)] that represent ranges in which the value is found
-	# This is currently implemented with a linear-time algorithm, but can be
-	# improved in the future
-	def get_symbols(self, feature, value):
+    # Ret tuples [(ste, index)] that represent ranges where value is found
+    # This is currently implemented with a linear-time algorithm, but can be
+    # improved in the future
+    def get_symbols(self, feature, value):
 
-		# This gives us stes and pointers into stes
-		ranges = self.get_ranges(feature)
-		found_symbol = False
-		return_list = []
+        # This gives us stes and pointers into stes
+        ranges = self.get_ranges(feature)
+        found_symbol = False
+        return_list = []
 
-		# Go from the start to the end of the ste and check for a matching range
-		for ste, start, end in ranges:
+        # Go from start to the end of the ste and check for a matching range
+        for ste, start, end in ranges:
 
-			labels = range(start, end)
-			thresholds = self.stes_[ste][start:end]
+            labels = range(start, end)
+            thresholds = self.stes_[ste][start:end]
 
-			assert len(labels) == len(thresholds), "Zipping labels and thresholds is gonna fail :("
+            assert len(labels) == len(thresholds),\
+                "Zipping labels and thresholds is gonna fail :("
 
-			# If we've already found our range.. tack on a -2
-			if found_symbol:
+            # If we've already found our range.. tack on a -2
+            if found_symbol:
 
-				return_list.append((ste, end-1))
+                return_list.append((ste, end - 1))
 
-				assert thresholds[-1] == -2
+                assert thresholds[-1] == -2
 
-			else:
+            else:
 
-				for label, threshold_limit in zip(labels, thresholds):
+                for label, threshold_limit in zip(labels, thresholds):
 
-					# We haven't found our range yet
-					if threshold_limit == -2:
-						return_list.append((ste, label))
+                    # We haven't found our range yet
+                    if threshold_limit == -2:
+                        return_list.append((ste, label))
 
-					elif threshold_limit == -1:
+                    elif threshold_limit == -1:
 
-						found_symbol = True
-						return_list.append((ste, label))
-						break
+                        found_symbol = True
+                        return_list.append((ste, label))
+                        break
 
-					elif threshold_limit == value:
+                    elif threshold_limit == value:
 
-						return_list.append((ste, label))
-						found_symbol = True
-						break
+                        return_list.append((ste, label))
+                        found_symbol = True
+                        break
 
-					elif threshold_limit < value:
-						continue
+                    elif threshold_limit < value:
+                        continue
 
-					elif threshold_limit > value:
-						return_list.append((ste, label))
-						found_symbol = True
-						break
+                    elif threshold_limit > value:
+                        return_list.append((ste, label))
+                        found_symbol = True
+                        break
 
-		# Make sure that we're returning one symbol per STE assigned to the feature
-		assert len(return_list) == len(ranges)
+        # Make sure that we return one symbol per STE assigned to feature
+        assert len(return_list) == len(ranges)
 
-		#print "Value: %d, Return List: " % value, return_list
-		return return_list
+        return return_list
 
-	# This function generates an input file from an input X
-	def input_file(self, X, filename, onebased=False, short=False):
+    # This function generates an input file from an input X
+    def input_file(self, X, filename, onebased=False,
+                   short=False, delimited=True):
 
-		if short:
-			X = X[:100]
+        if short:
+            X = X[:100]
 
-		print "Writing %d samples to input file" % X.shape[0]
+        print "Writing %d samples to input file" % X.shape[0]
 
-		num_bytes_per_class = 0
+        num_bytes_per_class = 0
 
-		# Open up the output file
-		with open(filename, 'wb') as f:
+        # Open up the output file
+        with open(filename, 'wb') as f:
 
-			inputstring = array('B')
-			inputstring.append(255) #We always start with a /xff
+            inputstring = array('B')
 
-			print "%d features in each row of X" % len(X[0])
-			print "%d unique features in this permutation" % len(set(self.permutation_))
-			print "%d cycles per classification" % len(self.permutation_)
-			# For each input row...
-			for row in X:
+            if delimited:
+                inputstring.append(255)
 
-				# Use the feature indexes as they were added to the feature_pointer ordered dict
-				for f_i in self.permutation_:
+            print "%d features in each row of X" % len(X[0])
+            print "%d unique features in this permutation" %\
+                len(set(self.permutation_))
+            print "%d cycles per classification" % len(self.permutation_)
+            # For each input row...
+            for row in X:
 
-					# Get the corresponding feature value
-					if onebased:
-						f_v = row[f_i - 1]
-					else:
-						f_v = row[f_i]
+                # Use feature indexes as added to feature_pointer ordered dict
+                for f_i in self.permutation_:
 
-					for ste, symbol in self.get_symbols(f_i, f_v):
+                    # Get the corresponding feature value
+                    if onebased:
+                        f_v = row[f_i - 1]
+                    else:
+                        f_v = row[f_i]
 
-						inputstring.append(symbol)
-						num_bytes_per_class += 1
+                    for ste, symbol in self.get_symbols(f_i, f_v):
 
-				# We always finish each feature with a 255
-				inputstring.append(255)
-				num_bytes_per_class = 0
+                        inputstring.append(symbol)
+                        num_bytes_per_class += 1
 
-			f.write(inputstring.tostring())
+                # We always finish each feature with a 255 (if delimited)
+                if delimited:
+                    inputstring.append(255)
 
-		# Return the number of bytes written to the input file
-		return len(inputstring.tostring())
+                num_bytes_per_class = 0
 
+            f.write(inputstring.tostring())
+
+        # Return the number of bytes written to the input file
+        return len(inputstring.tostring())

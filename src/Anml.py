@@ -3,13 +3,16 @@
 '''
 from enum import Enum
 
+
 class AnmlDefs(Enum):
     ALL_INPUT = 1
     NO_START = 2
 
+
 class Ste(object):
 
-    def __init__(self, *args, **kwargs):#anmlId, character_class, defs, match=False, reportCode=None):
+    # anmlId, character_class, defs, match=False, reportCode=None):
+    def __init__(self, *args, **kwargs):
 
         self.neighbors_ = []
 
@@ -35,17 +38,21 @@ class Ste(object):
         self.neighbors_.append(ste2)
 
     def __str__(self):
-        string = "<state-transition-element id=\""+self.id_+"\" symbol-set=\""+self.character_class_+"\""
+        string = "<state-transition-element id=\"" + self.id_ + \
+            "\" symbol-set=\"" + self.character_class_ + "\""
         if self.starting_:
-            string +=  " start=\""+self.start_type_+"\">\n"
+            string += " start=\"" + self.start_type_ + "\">\n"
         else:
             string += ">\n"
         if self.reportCode_ is not None:
-            string += "\t\t\t<report-on-match reportcode=\""+self.reportCode_+"\"/>\n"
+            string += "\t\t\t<report-on-match reportcode=\"" +\
+                self.reportCode_ + "\"/>\n"
         for neighbor in self.neighbors_:
-            string += "\t\t\t<activate-on-match element=\""+neighbor.id_+"\"/>\n"
+            string += "\t\t\t<activate-on-match element=\"" + \
+                neighbor.id_ + "\"/>\n"
         string += "\t\t</state-transition-element>\n"
         return string
+
 
 class Anml(object):
 
@@ -54,14 +61,14 @@ class Anml(object):
         self.id_ = aId
 
     def __str__(self):
-        string = "<anml version=\"1.0\"  xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">\n"
-        string += "\t<automata-network id=\""+self.id_+"\">\n"
+        string = "<anml version=\"1.0\"  xmlns:xsi=\"\
+            http://www.w3.org/2001/XMLSchema-instance\">\n"
+        string += "\t<automata-network id=\"" + self.id_ + "\">\n"
         for ste in self.stes_:
-            string += '\t\t'+str(ste)
+            string += '\t\t' + str(ste)
         string += '\t</automata-network>\n'
         string += '</anml>\n'
         return string
-
 
     def AddSTE(self, *args, **kargs):
 
@@ -81,7 +88,7 @@ class Anml(object):
             f.write(str(self))
         return 0
 
-# Let's test it
+
 if __name__ == "__main__":
 
     anml = Anml()
@@ -92,14 +99,17 @@ if __name__ == "__main__":
 
     for i in range(10):
         if i == 0:
-            start_ste = anml.AddSTE(report_symbol, AnmlDefs.ALL_INPUT, anmlId=i, match=False)
+            start_ste = anml.AddSTE(report_symbol, AnmlDefs.ALL_INPUT,
+                                    anmlId=i, match=False)
             stes.append(start_ste)
         else:
             character_class = r"\x%02X" % i
-            ste = anml.AddSTE(character_class, AnmlDefs.NO_START, anmlId=i, match=False)
+            ste = anml.AddSTE(character_class, AnmlDefs.NO_START,
+                              anmlId=i, match=False)
             anml.AddAnmlEdge(stes[-1], ste, 0)
             stes.append(ste)
 
-    ste = anml.AddSTE(report_symbol, AnmlDefs.NO_START, anmlId=10, reportCode=10)
+    ste = anml.AddSTE(report_symbol, AnmlDefs.NO_START,
+                      anmlId=10, reportCode=10)
     anml.AddAnmlEdge(stes[-1], ste, 0)
     anml.ExportAnml("test_anml.anml")
