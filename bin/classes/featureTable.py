@@ -20,7 +20,7 @@
 from termcolor import colored
 from random import *
 from array import *
-import util
+import tools.util as util
 from collections import OrderedDict
 
 

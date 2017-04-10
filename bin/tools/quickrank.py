@@ -15,17 +15,14 @@
 import sys
 import xmltodict
 import logging
-import pickle
 
 # RF Automata Imports
-from chain import *
-from featureTable import *
-import automatize
-#from plot import *
-#from anmltools import *
+from classes.chain import *
+from classes.featureTable import *
 
 # Turn on logging.
 logging.basicConfig(format='%(asctime)s : %(message)s', level=logging.INFO)
+
 
 # Load the quickrank xml file
 def load_qr(modelfile):
@@ -37,6 +34,7 @@ def load_qr(modelfile):
     parsed = xmltodict.parse(xml)
 
     return parsed
+
 
 # Grab ensemble and tree data from parsed XML
 def grab_data(xml, verbose=False):
@@ -51,14 +49,9 @@ def grab_data(xml, verbose=False):
     # Info
     num_trees = int(info['trees'])
     leaves = int(info['leaves'])
-    shrinkage = info['shrinkage']
-    leafsupport = info['leafsupport']
-    discretization = info['discretization']
-    estop = info['estop']
 
     # ensemble
     trees = ensemble['tree']
-    tree_count = len(trees)
 
     if verbose:
         logging.info("Trees:%d, Leaves:%d" % (num_trees, leaves))
@@ -78,8 +71,10 @@ def grab_data(xml, verbose=False):
 
     return tree_list
 
+
 # Convert tree to chains
-def tree_to_chains(tree_id, tree_weight, tree_split, chains, threshold_map, values):
+def tree_to_chains(tree_id, tree_weight, tree_split, chains,
+                   threshold_map, values):
 
     # Root node attributes
     feature = int(tree_split['feature'])
@@ -90,7 +85,8 @@ def tree_to_chains(tree_id, tree_weight, tree_split, chains, threshold_map, valu
     if feature not in threshold_map:
         threshold_map[feature] = [threshold]
 
-    # If the feature has already been seen, check to see if this is a unique threshold
+    # If the feature has already been seen,
+    # check to see if this is a unique threshold
     elif threshold not in threshold_map[feature]:
         threshold_map[feature].append(threshold)
 
@@ -109,10 +105,10 @@ def tree_to_chains(tree_id, tree_weight, tree_split, chains, threshold_map, valu
     right_chain.add_node(root_node)
 
     # Recursively add chains to the list as we iterate left
-    chains += recurse(split[0], left_chain, threshold_map, values)
+    chains += recurse(left, left_chain, threshold_map, values)
 
     # Recursively add chains to the list as we iterate left
-    chains += recurse(split[1], right_chain, threshold_map, values)
+    chains += recurse(right, right_chain, threshold_map, values)
 
     # Ok, we're done here
     return
@@ -120,9 +116,6 @@ def tree_to_chains(tree_id, tree_weight, tree_split, chains, threshold_map, valu
 
 # Recursive function to convert trees into chains
 def recurse(split, temp_chain, threshold_map, values):
-
-    # We're doing a depth-first traversal
-    pos = split['@pos'] # 'right'/'left'
 
     # We're at a leaf!
     if 'output' in split:
@@ -152,7 +145,7 @@ def recurse(split, temp_chain, threshold_map, values):
         left_chain = temp_chain
         right_chain = temp_chain.copy()
 
-                    # feature, threshold, gt
+        # feature, threshold, gt
         node_l = Node(feature, threshold, False)
         left_chain.add_node(node_l)
 
@@ -194,12 +187,14 @@ if __name__ == '__main__':
     # Keep track of unique values
     values = []
 
-    # Iterate through all trees in the ensemble and keep track of chains, features, and thresholds
+    # Iterate through all trees in the ensemble and
+    # keep track of chains, features, and thresholds
     logging.info("Converting trees to chains")
 
     for tree_id, tree_weight, tree_split in trees:
 
-        tree_to_chains(tree_id, tree_weight, tree_split, chains, features, threshold_map, values)
+        tree_to_chains(tree_id, tree_weight, tree_split, chains,
+                       features, threshold_map, values)
 
     # Assign chain ids sequentially over list
     for chain_id, chain in enumerate(chains):
@@ -214,9 +209,6 @@ if __name__ == '__main__':
 
     # The value_map is used to give unique value ids to each value
     values.sort()
-
-    #plot_thresholds(threshold_map)
-    exit()
 
     value_map = {}
 
@@ -244,16 +236,7 @@ if __name__ == '__main__':
 
     logging.info("Dumping Chains, Feature Table, and Value Map to pickle")
 
-    automatize.dump_cftvm(chains, ft, value_map, 'chainsFeatureTableValueMapRanking.pickle')
-
     logging.info("Done!")
 
     # Create a reverse value map to use index of float value
     reverse_value_map = {value: key for key, value in value_map.iteritems()}
-
-    print reverse_value_map
-    exit()
-
-    #generate_anml(chains, ft, options.anml, reverse_value_map=reverse_value_map)
-
-

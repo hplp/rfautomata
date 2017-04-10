@@ -12,7 +12,7 @@
     21 November 2016
     Version 1.0
 '''
-from Anml import *
+from classes.Anml import *
 
 
 # Generate ANML code for the provided chains

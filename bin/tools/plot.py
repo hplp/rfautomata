@@ -1,5 +1,6 @@
 '''
-    The purpose of this module is to plot information about automatized d-tree ensemble-based models.
+    The purpose of this module is to plot information
+    about automatized d-tree ensemble-based models.
 
     ----------------------
     Author: Tom Tracy II
@@ -12,7 +13,7 @@
 
 # Utility Imports
 import matplotlib.pyplot as plt
-from matplotlib.ticker import MaxNLocator
+
 
 # Plot the number of thresholds across features
 def plot_thresholds(threshold_map):
@@ -21,7 +22,8 @@ def plot_thresholds(threshold_map):
     features = threshold_map.keys()
 
     # The values are a list of unique thresholdsccs
-    threshold_counts = [len(thresholds) for f, thresholds in threshold_map.iteritems()]
+    threshold_counts = [len(thresholds) for f,
+                        thresholds in threshold_map.iteritems()]
 
     assert len(features) == len(threshold_counts)
 
@@ -44,9 +46,10 @@ def plot_thresholds(threshold_map):
     plt.bar(range(len(features)), thresholds)
     plt.xlabel('Feature (sorted by threshold count)')
     plt.ylabel('Sorted Count of Unique Thresholds Per Feature')
-    plt.ylim([0,thresholds[-1]])
-    plt.xlim([0,len(features)])
-    plt.title('Unique Thresholds Used Per Feature (Min:%d, Max:%d)' % (thresholds[0], thresholds[-1]))
+    plt.ylim([0, thresholds[-1]])
+    plt.xlim([0, len(features)])
+    plt.title('Unique Thresholds Used Per Feature (Min:%d, Max:%d)' %
+              (thresholds[0], thresholds[-1]))
     plt.grid(True)
 
     plt.show()

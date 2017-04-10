@@ -27,11 +27,11 @@ import pickle
 import numpy as np
 
 # Automata Imports
-from chain import *
-from featureTable import *
-import quickrank as qr
-from anmltools import *
-import gputools
+from classes.chain import *
+from classes.featureTable import *
+import tools.quickrank as qr
+from tools.anmltools import *
+import tools.gputools as gputools
 
 # Turn on logging; let's see what all is going on
 logging.basicConfig(format='%(asctime)s : %(message)s', level=logging.INFO)
