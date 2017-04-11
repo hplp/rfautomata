@@ -54,8 +54,14 @@ if __name__ == '__main__':
                  (options.iters, options.model))
 
     model = load_model(options.model)
-    logging.info("Model: nTrees: %d, nLeaves:%d, nJobs: %d" %
-                 (model.n_estimators, model.max_leaf_nodes, model.n_jobs))
+
+    if model.max_leaf_nodes is not None:
+    	logging.info("Model: nTrees: %d, nLeaves:%d, nJobs: %d" %
+        	     (model.n_estimators, model.max_leaf_nodes, model.n_jobs))
+    else:
+        logging.info("Model: nTrees: %d, maxDepth:%d, nJobs: %d" %
+		     (model.n_estimators, model.max_depth, model.n_jobs))
+
     X_test, y_test = load_test(options.test)
     logging.info("Test Data: %d samples x %d features" % (X_test.shape))
 
