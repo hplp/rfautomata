@@ -165,6 +165,11 @@ class FeatureTable(object):
 
         print "Writing %d samples to input file" % X.shape[0]
 
+        if delimited:
+            print "Delimited"
+        else:
+            print "Not Delimited"
+
         num_bytes_per_class = 0
 
         # Open up the output file

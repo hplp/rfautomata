@@ -19,9 +19,14 @@ def gpu_chains(chains, feature_table, value_map, gpu_chains_filename,
     gpu_file = open(gpu_chains_filename, 'w')
 
     # Write the number of chains, and the bin count per chain
+    # The number of chains in this gpu chains file
     gpu_file.write(str(len(chains)) + "\n")
+    # The number of stes per chain
     gpu_file.write(str(feature_table.ste_count_) + "\n")
+    # The ste at which the loop starts
     gpu_file.write(str(feature_table.start_loop_) + "\n")
+    # The number of features per sample
+    gpu_file.write(str(len(feature_table.features_)) + "\n")
 
     # Iterate through all chains
     for chain in chains:
