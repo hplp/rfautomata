@@ -337,6 +337,8 @@ if __name__ == '__main__':
                       help='Use one STE per Feature')
     parser.add_option('--gpu', action='store_true', default=False, dest='gpu',
                       help='Generate GPU compatible chains and output files')
+    parser.add_option('--short', action='store_true',default=False, dest='short',
+                      help='Make a short version of the input (100 samples)')
     parser.add_option('-v', '--verbose', action='store_true', default=False,
                       dest='verbose', help='Verbose')
     options, args = parser.parse_args()
@@ -491,6 +493,6 @@ if __name__ == '__main__':
 
     # If using quickrank, are features are based at index = 1, instead of 0
     ft.input_file(X_test, "input_file.bin", onebased=quickrank,
-                  short=False, delimited=not options.gpu)
+                  short=options.short, delimited=not options.gpu)
 
     logging.info("Done!")
