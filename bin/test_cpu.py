@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 '''
     The purpose of this program is to test the model
     on the CPU to get throughput results
