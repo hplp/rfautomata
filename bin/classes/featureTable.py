@@ -23,7 +23,6 @@ from array import *
 import tools.util as util
 from collections import OrderedDict
 
-
 # Define FeatureTable class
 class FeatureTable(object):
 

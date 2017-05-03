@@ -116,8 +116,10 @@ def get_throughput(model, X_test, iters):
     logging.info("Test Data: %d samples x %d features" % (X_test.shape))
 
     start_time = time.time()
+
     for i in range(iters):
         model.predict(X_test)
+
     end_time = time.time()
 
     avg_time = (end_time - start_time) / float(iters)
@@ -171,8 +173,8 @@ if __name__ == '__main__':
     # Validate command line arguments
     if options.trainfile is None:
         if options.canned not in datasets.keys():
-            raise ValueError("No valid training data filename specified;\
-                             provide -t or a valid canned dataset")
+            raise ValueError("No valid training data filename specified; \
+                              provide -t or a valid canned dataset")
             exit(-1)
         else:
             canned = True

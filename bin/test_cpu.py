@@ -18,8 +18,12 @@ logging.basicConfig(format='%(asctime)s : %(message)s', level=logging.INFO)
 def load_model(modelfile):
 
     # Read the modelfile pickle
-    with open(modelfile, 'rb') as f:
-        model = pickle.load(f)
+    try:
+        with open(modelfile, 'rb') as f:
+            model = pickle.load(f)
+    except IOError as e:
+        print "I/O error({0}): {1}".format(e.errno, e.strerror)
+        exit(-1)
 
     return model
 
@@ -28,8 +32,12 @@ def load_model(modelfile):
 def load_test(testfile):
 
     # Read the testing data in to be used to generate a symbol file
-    with open(testfile, 'rb') as f:
-        X_test, y_test = pickle.load(f)
+    try:
+        with open(testfile, 'rb') as f:
+            X_test, y_test = pickle.load(f)
+    except IOError as e:
+        print "I/O error({0}): {1}".format(e.errno, e.strerror)
+        exit(-1)
 
     return X_test, y_test
 
@@ -47,6 +55,8 @@ if __name__ == '__main__':
     parser.add_option('-n', '--numiter', type='float', dest='iters',
                       default=1000,
                       help='The number of times the test is run to get data')
+    parser.add_option('-j', '--njobs', type='int', dest='njobs',
+                      help='The number of threads to execute the model')
     parser.add_option('-v', '--verbose', action='store_true', default=False,
                       dest='verbose', help='Verbose')
     options, args = parser.parse_args()
@@ -54,7 +64,11 @@ if __name__ == '__main__':
     logging.info("Running CPU throughput test %d times with model %s" %
                  (options.iters, options.model))
 
-    model = load_model(options.model)
+    if options.model is None:
+        print(usage)
+        exit(-1)
+    else:
+        model = load_model(options.model)
 
     if model.max_leaf_nodes is not None:
     	logging.info("Model: nTrees: %d, nLeaves:%d, nJobs: %d" %
@@ -72,6 +86,10 @@ if __name__ == '__main__':
     # If we only have one, let's do another test
     if len(trees) == 1:
         logging.info("Only one tree in the Forest; running seperate test")
+
+        if options.njobs is None:
+            logging.info("Because there is only one tree, we cannot parallelize")
+
         start_time = time.time()
         for i in range(int(options.iters)):
             trees[0].predict(X_test)
@@ -84,16 +102,23 @@ if __name__ == '__main__':
         kthroughput = throughput / 1000.0
 
         logging.info("D-Tree Throughput: %d kSamples / second" % (kthroughput))
+    else:
 
-    start_time = time.time()
-    for i in range(int(options.iters)):
-        model.predict(X_test)
-    end_time = time.time()
+        if options.njobs is not None:
+            #model.set_params(**{'n_jobs', options.njobs})
+            model.n_jobs = options.njobs
 
-    avg_time = (end_time - start_time) / options.iters
-    print("Avg Time: ", avg_time)
+        start_time = time.time()
 
-    throughput = float(X_test.shape[0]) / avg_time
-    kthroughput = throughput / 1000.0
+        for i in range(int(options.iters)):
+            model.predict(X_test)
 
-    logging.info("RF Throughput: %f ksamples / second" % (kthroughput))
+        end_time = time.time()
+
+        avg_time = (end_time - start_time) / options.iters
+        print("Avg Time: ", avg_time)
+
+        throughput = float(X_test.shape[0]) / avg_time
+        kthroughput = throughput / 1000.0
+
+        logging.info("RF Throughput: %f ksamples / second" % (kthroughput))

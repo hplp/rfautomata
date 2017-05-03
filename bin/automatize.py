@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 '''
     The purpose of this program is to convert
     SKLEARN and QUICKLEARN models into an
@@ -34,28 +35,41 @@ import tools.quickrank as qr
 from tools.anmltools import *
 import tools.gputools as gputools
 
+# MNRL stuff
+import mnrl
+import csv
+
 # Turn on logging; let's see what all is going on
 logging.basicConfig(format='%(asctime)s : %(message)s', level=logging.INFO)
-
 
 # Load a sklearn model from a file
 def load_model(modelfile):
 
-    # Read the modelfile pickle
-    with open(modelfile, 'rb') as f:
-        model = pickle.load(f)
+    try:
+        # Read the modelfile pickle
+        with open(modelfile, 'rb') as f:
+            model = pickle.load(f)
 
-    return model
+        return model
+    except IOError as e:
+        print "I/O error({0}): {1}".format(e.errno, e.strerror)
+        exit(-1)
+
 
 
 # Load testing data
 def load_test(testfile):
 
-    # Read the testing data in to be used to generate a symbol file
-    with open(testfile, 'rb') as f:
-        X_test, y_test = pickle.load(f)
+    try:
+        # Read the testing data in to be used to generate a symbol file
+        with open(testfile, 'rb') as f:
+            X_test, y_test = pickle.load(f)
 
-    return X_test, y_test
+        return X_test, y_test
+    except IOError as e:
+        print "I/O error({0}): {1}".format(e.errno, e.strerror)
+        exit(-1)
+
 
 
 # Dump pickle file containing chains, ft, value_map
@@ -74,6 +88,49 @@ def load_cftvm(cftFile):
         chains, ft, value_map, reverse_value_map = pickle.load(f)
 
     return chains, ft, value_map, reverse_value_map
+
+# Make MNRL chains for CPU/GPU
+def make_mnrl_chains(chains):
+
+    mnrl_network = mnrl.MNRLNetwork('chains')
+
+    for chain in chains:
+
+        report_code = chain.chain_id_
+        previous_id = None
+
+        for i, state in enumerate(chain.nodes_):
+
+            # Make the first node an enable on START node that does _not_ report
+            if i == 0:
+                node = mnrl_network.addPFPState(state.feature_,
+                                                state.threshold_,
+                                                greaterThan=state.gt_,
+                                                reportId=report_code,
+                                                enable=mnrl.MNRLDefs.ENABLE_ON_START_AND_ACTIVATE_IN)
+            # Make the last node report
+            elif i == (len(chain.nodes_) - 1):
+                node = mnrl_network.addPFPState(state.feature_,
+                                                state.threshold_,
+                                                greaterThan=state.gt_,
+                                                reportId=report_code,
+                                                report=True)
+
+            # Make all others neither report nor start
+            else:
+                node = mnrl_network.addPFPState(state.feature_,
+                                                state.threshold_,
+                                                greaterThan=state.gt_,
+                                                reportId=report_code)
+
+            # previous node -> current node
+            if i > 0:
+                mnrl_network.addConnection((previous_id, mnrl.MNRLDefs.PFP_STATE_OUTPUT), (node.id, mnrl.MNRLDefs.PFP_STATE_INPUT))
+
+            # Set previous id for next iteration
+            previous_id = node.id
+
+    return mnrl_network
 
 
 # Convert tree to chains (for scikit-learn models)
@@ -441,6 +498,16 @@ if __name__ == '__main__':
         # We can simply assign chain ids sequentially over our list
         for chain_id, chain in enumerate(chains):
             chain.set_chain_id(chain_id)
+
+        mnrl_network = make_mnrl_chains(chains)
+
+        mnrl_network.exportToFile("chains.mnrl")
+
+        X_test, y_test = load_test("testing_data.pickle")
+
+        np.savetxt("testing.csv", X_test, delimiter=',', fmt='%1.4e')
+
+        exit()
 
         # Sort the thresholds for all features
         for f, t in threshold_map.items():
