@@ -105,7 +105,6 @@ if __name__ == '__main__':
     else:
 
         if options.njobs is not None:
-            #model.set_params(**{'n_jobs', options.njobs})
             model.n_jobs = options.njobs
 
         start_time = time.time()

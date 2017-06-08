@@ -305,7 +305,7 @@ if __name__ == '__main__':
     # Write out the test data for testing with the automata
     dump_test(X_test, y_test, "testing_data.pickle")
 
-    # Get throughput results
+    # Get throughput results for the CPU
     get_throughput(model, X_test, 100)
 
     if options.report is not None:

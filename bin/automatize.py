@@ -37,10 +37,10 @@ import tools.gputools as gputools
 
 # MNRL stuff
 import mnrl
-import csv
 
 # Turn on logging; let's see what all is going on
 logging.basicConfig(format='%(asctime)s : %(message)s', level=logging.INFO)
+
 
 # Load a sklearn model from a file
 def load_model(modelfile):
@@ -54,7 +54,6 @@ def load_model(modelfile):
     except IOError as e:
         print "I/O error({0}): {1}".format(e.errno, e.strerror)
         exit(-1)
-
 
 
 # Load testing data
@@ -71,8 +70,7 @@ def load_test(testfile):
         exit(-1)
 
 
-
-# Dump pickle file containing chains, ft, value_map
+# Dump pickle file containing chains, ft, value_map (not included yet)
 def dump_cftvm(chains, ft, value_map, reverse_value_map, filename):
 
     with open(filename, 'wb') as f:
@@ -81,7 +79,7 @@ def dump_cftvm(chains, ft, value_map, reverse_value_map, filename):
     return 0
 
 
-# Load the chains, FT and value map from a file
+# Load the chains, FT and value map from a file  (not included yet)
 def load_cftvm(cftFile):
 
     with open(cftFile, 'rb') as f:
@@ -89,7 +87,9 @@ def load_cftvm(cftFile):
 
     return chains, ft, value_map, reverse_value_map
 
+
 # Make MNRL chains for CPU/GPU
+# This function uses one STE per feature, and includes inequalities (GT, or LTEQ)
 def make_mnrl_chains(chains):
 
     mnrl_network = mnrl.MNRLNetwork('chains')
@@ -101,7 +101,7 @@ def make_mnrl_chains(chains):
 
         for i, state in enumerate(chain.nodes_):
 
-            # Make the first node an enable on START node that does _not_ report
+            # Make first node an enable on START node that does _not_ report
             if i == 0:
                 node = mnrl_network.addPFPState(state.feature_,
                                                 state.threshold_,
@@ -395,7 +395,10 @@ if __name__ == '__main__':
                       help='Use one STE per Feature')
     parser.add_option('--gpu', action='store_true', default=False, dest='gpu',
                       help='Generate GPU compatible chains and output files')
-    parser.add_option('--short', action='store_true',default=False, dest='short',
+    parser.add_option('--mnrl', action='store_true', default=False, dest='mnrl',
+                      help='Generate MNRL chains (with floating point thresholds \
+                      and one STE per feature)')
+    parser.add_option('--short', action='store_true', default=False, dest='short',
                       help='Make a short version of the input (100 samples)')
     parser.add_option('-v', '--verbose', action='store_true', default=False,
                       dest='verbose', help='Verbose')
@@ -499,15 +502,19 @@ if __name__ == '__main__':
         for chain_id, chain in enumerate(chains):
             chain.set_chain_id(chain_id)
 
-        mnrl_network = make_mnrl_chains(chains)
+        if options.mnrl:
+            mnrl_network = make_mnrl_chains(chains)
 
-        mnrl_network.exportToFile("chains.mnrl")
+            mnrl_network.exportToFile("chains.mnrl")
 
-        X_test, y_test = load_test("testing_data.pickle")
+            X_test, y_test = load_test("testing_data.pickle")
 
-        np.savetxt("testing.csv", X_test, delimiter=',', fmt='%1.4e')
+            np.savetxt("testing.csv", X_test, delimiter=',', fmt='%1.4e')
 
-        exit()
+            logging.info("Done generating MNRL and testing output files")
+
+            exit(0)
+
 
         # Sort the thresholds for all features
         for f, t in threshold_map.items():
