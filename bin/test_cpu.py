@@ -1,7 +1,15 @@
 #!/usr/bin/env python
 '''
-    The purpose of this program is to test the model
-    on the CPU to get throughput results
+    The purpose of this program is to test the Scikit-Learn model
+    on your CPU to get throughput results.
+    
+    ----------------------
+    Author: Tom Tracy II
+    email: tjt7a@virginia.edu
+    University of Virginia
+    ----------------------
+    12 June 2017
+    Version 0.2
 '''
 
 # Utility Imports
@@ -80,10 +88,10 @@ if __name__ == '__main__':
     X_test, y_test = load_test(options.test)
     logging.info("Test Data: %d samples x %d features" % (X_test.shape))
 
-    # Grab the constituent deciders
+    # Grab the constituent estimators
     trees = model.estimators_
 
-    # If we only have one, let's do another test
+    # If we only have one, let's do a test on of the trees
     if len(trees) == 1:
         logging.info("Only one tree in the Forest; running seperate test")
 
@@ -91,8 +99,10 @@ if __name__ == '__main__':
             logging.info("Because there is only one tree, we cannot parallelize")
 
         start_time = time.time()
+
         for i in range(int(options.iters)):
             trees[0].predict(X_test)
+
         end_time = time.time()
 
         avg_time = (end_time - start_time) / options.iters
