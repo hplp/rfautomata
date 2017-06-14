@@ -42,26 +42,37 @@ def getordering(ft):
     # This is the permutation of features
     permutation = []
 
-    # All STEs with a single feature (not part of the loop)
-    for _i in range(0, ft.start_loop_):
+    if ft.unrolled:
 
-        assert len(stes[_i]) == 1,\
-            "Bad assumption about size of STE allocations"
+        for _i in range(0, ft.ste_count_):
 
-        permutation.append(stes[_i].pop())
+            assert len(stes[_i] == 1, "Bad assumption about size of STE allocation")
 
-    index = ft.start_loop_
+            permutation.append(stes[_i].pop())
 
-    while len(stes[index]) > 0:
-        permutation.append(stes[index].pop(0))
 
-        if index == len(stes) - 1:
+    else:
 
-            index = ft.start_loop_
+        # All STEs with a single feature (not part of the loop)
+        for _i in range(0, ft.start_loop_):
 
-        else:
+            assert len(stes[_i]) == 1,\
+                "Bad assumption about size of STE allocations"
 
-            index += 1
+            permutation.append(stes[_i].pop())
+
+        index = ft.start_loop_
+
+        while len(stes[index]) > 0:
+            permutation.append(stes[index].pop(0))
+
+            if index == len(stes) - 1:
+
+                index = ft.start_loop_
+
+            else:
+
+                index += 1
 
     for ste in stes:
 
@@ -76,7 +87,7 @@ def getordering(ft):
 '''
 
 
-def compact(threshold_map, priority='runtime', verbose=True):
+def compact(threshold_map, priority='runtime', unrolled=False, verbose=True):
 
     start_loop = None
     end_loop = None
@@ -104,8 +115,6 @@ def compact(threshold_map, priority='runtime', verbose=True):
                         f, thresholds in threshold_map.iteritems()]
     threshold_counts.sort(key=lambda x: x[1], reverse=True)
 
-    print threshold_counts
-
     if verbose:
         logging.info("Maximum Binsize set to %d thresholds" % BINSIZE)
         logging.info("Initialized stes[] and feature_pointer")
@@ -116,11 +125,14 @@ def compact(threshold_map, priority='runtime', verbose=True):
     # one full STE or more, updating the threshold_counts by
     # removing those features and stes variable with the address table
 
-    if verbose:
-        logging.info("Attempting to pack 'large' features into 1 or more bins")
+    if unrolled:
+        logging.info("Attempting to pack all features into 1 or more bins")
+    else:
+        if verbose:
+            logging.info("Attempting to pack 'large' features into 1 or more bins")
 
     big_features(stes, feature_pointer, threshold_map, threshold_counts,
-                 BINSIZE, verbose)
+                 BINSIZE, verbose, unrolled=unrolled)
 
     # This means we have remaining small features
     if len(threshold_counts) > 0:
@@ -149,7 +161,7 @@ def compact(threshold_map, priority='runtime', verbose=True):
 
 
 def big_features(stes, feature_pointer, threshold_map, threshold_counts,
-                 BINSIZE, verbose):
+                 BINSIZE, verbose, unrolled=False):
 
     # As we assign big features to STEs, we need to keep track to remove them
     counts_to_remove = []
@@ -157,8 +169,18 @@ def big_features(stes, feature_pointer, threshold_map, threshold_counts,
     # Start from largest feature threshold count to smallest
     for _f, _t in threshold_counts:
 
+        if unrolled and _t <= BINSIZE:
+
+            if verbose:
+                logging.info("Found feature %d to fit in exactly one bin!" % _f)
+
+            counts_to_remove.append((_f, _t))
+
+            update_stes(stes, feature_pointer, threshold_map,
+                        threshold_counts, [_f])
+
         # If the feature is an exact fit, shove it in
-        if _t == BINSIZE:
+        elif _t == BINSIZE:
 
             if verbose:
                 logging.info("Found feature %d to use exactly one bin!" % _f)
@@ -579,7 +601,7 @@ def update_stes(stes, feature_pointer, threshold_map,
         # So now we know where this feature belongs
         feature_pointer[feature] = [(ste, start, end)]
 
-        threshold_counts.remove((feature, len(threshold_map[feature])))
+        #threshold_counts.remove((feature, len(threshold_map[feature])))
 
     stes.append(sub_thresholds)
 

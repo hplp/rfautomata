@@ -17,7 +17,7 @@ from classes.Anml import *
 
 # Generate ANML code for the provided chains
 def generate_anml(chains, feature_table, value_map, anml_filename,
-                  reverse_value_map=None, naive=False):
+                  reverse_value_map=None, unrolled=False):
 
     anml_net = Anml()
 
@@ -100,13 +100,15 @@ def generate_anml(chains, feature_table, value_map, anml_filename,
             ste = anml_net.AddSTE(character_classes[ste_i], AnmlDefs.NO_START,
                                   anmlId=ste_id, match=False)
 
-            # Connect them forward
+            # Connect them forward (this is where the loop is made)
             anml_net.AddAnmlEdge(stes[-1], ste, 0)
 
             stes.append(ste)
 
-        # Ourur cycle; mapping from end of the chain to the start of the loop
-        anml_net.AddAnmlEdge(stes[-1], stes[feature_table.start_loop_ + 1], 0)
+        # If we are looping
+        if not unrolled:
+            # Our cycle; mapping from end of the chain to the start of the loop
+            anml_net.AddAnmlEdge(stes[-1], stes[feature_table.start_loop_ + 1], 0)
 
         # For quickrank
         if value_map is not None:
@@ -130,8 +132,12 @@ def generate_anml(chains, feature_table, value_map, anml_filename,
         ste = anml_net.AddSTE(report_symbol, AnmlDefs.NO_START,
                               anmlId=ste_id, reportCode=report_code)
 
-        # Need to add 1 to the index, because the first STE is the starting STE
-        anml_net.AddAnmlEdge(stes[feature_table.end_loop_ + 1], ste, 0)
+        # If we're doing chains, we know the last ste will go to the reporting state
+        if unrolled:
+            anml_net.AddAnmlEdge(stes[-1], ste, 0)
+        else:
+            # Need to add 1 to the index, because the first STE is the starting STE
+            anml_net.AddAnmlEdge(stes[feature_table.end_loop_ + 1], ste, 0)
 
         del stes
 

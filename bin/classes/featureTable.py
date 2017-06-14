@@ -27,7 +27,10 @@ from collections import OrderedDict
 class FeatureTable(object):
 
     # Constructor creates one contiguous feature address space
-    def __init__(self, threshold_map, verbose=True):
+    def __init__(self, threshold_map, unrolled=False, verbose=True):
+
+        # set unrolled for the feature table
+        self.unrolled = unrolled
 
         ordered_threshold_map = OrderedDict(sorted(threshold_map.items(),
                                                    key=lambda x: int(x[0])))

@@ -12,14 +12,16 @@
     email: tjt7a@virginia.edu
     University of Virginia
     ----------------------
-    8 February 2017
-    Version 1.1
+    12 June 2017
+    Version 0.2
 
     *Definitions*
     ----------------------
     features: a LIST containing all of the features
+    
     threshold_map: a DICT that maps features to a list of
     all thresholds used for that feature in the model
+    
 '''
 
 # Utility Imports
@@ -71,6 +73,7 @@ def load_test(testfile):
 
 
 # Dump pickle file containing chains, ft, value_map (not included yet)
+# This is used for testing
 def dump_cftvm(chains, ft, value_map, reverse_value_map, filename):
 
     with open(filename, 'wb') as f:
@@ -89,7 +92,7 @@ def load_cftvm(cftFile):
 
 
 # Make MNRL chains for CPU/GPU
-# This function uses one STE per feature, and includes inequalities (GT, or LTEQ)
+# This function uses one STE per feature, and includes inequalities (GT, or LTEQ) and floating point thresholds
 def make_mnrl_chains(chains):
 
     mnrl_network = mnrl.MNRLNetwork('chains')
@@ -99,15 +102,18 @@ def make_mnrl_chains(chains):
         report_code = chain.chain_id_
         previous_id = None
 
+        # Go through each chain..
         for i, state in enumerate(chain.nodes_):
 
-            # Make first node an enable on START node that does _not_ report
+            # Make the first node an enable-on START node that doesn't report
             if i == 0:
                 node = mnrl_network.addPFPState(state.feature_,
                                                 state.threshold_,
                                                 greaterThan=state.gt_,
                                                 reportId=report_code,
+                                                report=False,
                                                 enable=mnrl.MNRLDefs.ENABLE_ON_START_AND_ACTIVATE_IN)
+
             # Make the last node report
             elif i == (len(chain.nodes_) - 1):
                 node = mnrl_network.addPFPState(state.feature_,
@@ -121,11 +127,14 @@ def make_mnrl_chains(chains):
                 node = mnrl_network.addPFPState(state.feature_,
                                                 state.threshold_,
                                                 greaterThan=state.gt_,
-                                                reportId=report_code)
+                                                report=False)
 
             # previous node -> current node
             if i > 0:
-                mnrl_network.addConnection((previous_id, mnrl.MNRLDefs.PFP_STATE_OUTPUT), (node.id, mnrl.MNRLDefs.PFP_STATE_INPUT))
+                mnrl_network.addConnection((previous_id,
+                                            mnrl.MNRLDefs.PFP_STATE_OUTPUT),
+                                           (node.id,
+                                            mnrl.MNRLDefs.PFP_STATE_INPUT))
 
             # Set previous id for next iteration
             previous_id = node.id
@@ -154,12 +163,14 @@ def tree_to_chains(tree, tree_id, chains, threshold_map, values):
 
     # Let's create a 'left' chain from the root
     left_chain = Chain(tree_id)
+
     # This is the root node -> left decision
     root_node = Node(feature, threshold, False)
     left_chain.add_node(root_node)
 
     # Let's create a 'right' chain from the root
     right_chain = Chain(tree_id)
+
     # This is the root node -> right decision
     root_node = Node(feature, threshold, True)
     right_chain.add_node(root_node)
@@ -197,9 +208,10 @@ def recurse(tree, index, temp_chain, threshold_map, values):
         # This returns the chain as a single value list
         return [temp_chain]
 
-    # If we're not a leaf, we got children!
+    # If we're not a leaf, we must have children!
     else:
 
+        # Because we're a binary decision tree, we must have both a left and right child
         left = tree.children_left[index]
         right = tree.children_right[index]
 
@@ -257,10 +269,6 @@ def set_character_sets(chain, ft):
 
                 # Also grab the thresholds assigned to the feature at this ste
                 thresholds = ft.stes_[ste][start:end]
-
-                # print " <= ", node.threshold_
-                # print "Thresholds: ", thresholds
-                # print "Labels: ", labels
 
                 assert len(labels) == len(thresholds),\
                     "Zipping labels and thresholds is gonna fail :("
@@ -391,15 +399,18 @@ if __name__ == '__main__':
                       help='FSM filename for compiling')
     parser.add_option('--chain-ft-vm', type='string', dest='cftvm',
                       help="Filename of chains and feature table pickle")
-    parser.add_option('--spf', action='store_true', default=False, dest='spf',
-                      help='Use one STE per Feature')
     parser.add_option('--gpu', action='store_true', default=False, dest='gpu',
                       help='Generate GPU compatible chains and output files')
+    parser.add_option('--unrolled', action='store_true', default=False, dest='unrolled',
+                      help='Set to get unrolled chains (no loops)')
     parser.add_option('--mnrl', action='store_true', default=False, dest='mnrl',
                       help='Generate MNRL chains (with floating point thresholds \
                       and one STE per feature)')
     parser.add_option('--short', action='store_true', default=False, dest='short',
                       help='Make a short version of the input (100 samples)')
+    parser.add_option('--longer', action='store_true', default=False,
+                      dest='longer',
+                      help='Make a 1000x longer input (23,100,000)')
     parser.add_option('-v', '--verbose', action='store_true', default=False,
                       dest='verbose', help='Verbose')
     options, args = parser.parse_args()
@@ -532,7 +543,7 @@ if __name__ == '__main__':
         logging.info("Building the Feature Table")
 
         # Create ideal address spacing for all features and thresholds
-        ft = FeatureTable(threshold_map)
+        ft = FeatureTable(threshold_map, unrolled=options.unrolled)
 
         logging.info("Sorting and combining the chains")
 
@@ -545,22 +556,18 @@ if __name__ == '__main__':
         logging.info("Dumping Chains, Feature Table,\
             Value Map and Reverse Value Map to pickle")
 
-        # dump_cftvm(chains, ft, value_map,reverse_value_map,
-        # 'chains_ft_vm_rvm.pickle')
-
         logging.info("Done writing out files")
 
     if options.gpu:
 
         logging.info("Generating %d GPU chains" % (len(chains)))
-        gputools.gpu_chains(chains, ft, value_map, options.anml,
-                            naive=options.spf)
+        gputools.gpu_chains(chains, ft, value_map, options.anml)
 
     else:
 
-        logging.info("Generating ANML file with%d chains" % (len(chains)))
+        logging.info("Generating ANML file with %d chains" % (len(chains)))
 
-        generate_anml(chains, ft, value_map, options.anml, naive=options.spf)
+        generate_anml(chains, ft, value_map, options.anml, unrolled=options.unrolled)
 
     logging.info("Dumping test file")
 

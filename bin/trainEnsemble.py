@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 '''
     The purpose of this program is to train a decision-tree based learning
-    algorithm using SKLEARN and to write the resulting model and testing
+    algorithm using Scitkit-Learn and to write the resulting model and testing
     data to their respective files.
     ----------------------
     Author: Tom Tracy II
     email: tjt7a@virginia.edu
     University of Virginia
     ----------------------
-    7 March 2017
+    12 March 2017
     Version 0.2
 
     Revisions:
@@ -104,11 +104,11 @@ def write_report(report_name, report_dict):
 
         for key, value in report_dict.items():
 
-            f.write(str(key) + ": " + str(value))
+            f.write(str(key) + ":" + str(value))
 
     return 0
 
-
+# Calculate the average throughput of the model on the CPU
 def get_throughput(model, X_test, iters):
 
     print("Model: ", str(model))
@@ -290,7 +290,7 @@ if __name__ == '__main__':
 
     result = test_model(model, X_test, y_test, metric)
 
-    logging.info(metric_names[metric] + ": " + str(result))
+    logging.info(metric_names[metric] + ":" + str(result))
     report_dict[metric_names[metric]] = str(result)
 
     if options.verbose:

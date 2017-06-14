@@ -15,6 +15,12 @@ To get started with the code using the example MNIST dataset, use the following 
 Clone the code to your local machine: 
 `git clone git@github.com:tjt7a/rfautomata.git`
 
+Make sure that you have the following dependencies installed, if missing, use pip to install:
+- optparse
+- logging
+- pickle
+- numpy
+
 ### Train the MNIST Model
 
 Use the trainensemble script to train a Random Forest model on the canned MNIST dataset.

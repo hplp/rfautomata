@@ -12,8 +12,7 @@
 
 # Generate GPU chains
 
-def gpu_chains(chains, feature_table, value_map, gpu_chains_filename,
-               reverse_value_map=None, naive=False):
+def gpu_chains(chains, feature_table, value_map, gpu_chains_filename):
 
     gpu_file = open(gpu_chains_filename, 'w')
 
