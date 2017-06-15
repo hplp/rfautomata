@@ -6,8 +6,8 @@
 =   email: tjt7a@virginia.edu                           =
 =   University of virginia                              =
 =   ----------------------                              =
-=   16 November 2016                                    =
-=   Version 1.0                                         =
+=    12 June 2017
+=    Version 0.2                                        =
 =                                                       =
 =   In the first version, we removed edges              =
 -----                                               ------

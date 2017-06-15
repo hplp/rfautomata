@@ -12,8 +12,8 @@
     email: tjt7a@virginia.edu
     University of Virginia
     ----------------------
-    7 February 2017
-    Version 1.1
+    12 June 2017
+    Version 0.2
 '''
 
 # Utility imports
@@ -42,7 +42,7 @@ class FeatureTable(object):
 
         # Find the minimum number of stes required to handle the features
         feature_pointer, stes, start_loop, end_loop =\
-            util.compact(self.threshold_map_, verbose=True)
+            util.compact(self.threshold_map_, unrolled=self.unrolled, verbose=True)
 
         # Assign feature_pointer and stes
         # feature -> [(STE, start, end)]
@@ -60,8 +60,9 @@ class FeatureTable(object):
         # Get loopy information
         self.permutation_ = util.getordering(self)
 
-        print "Start: %d, End: %d, Permutation: %s" %\
-            (self.start_loop_, self.end_loop_, str(self.permutation_))
+
+        print "Permutation: %s" %\
+            str(self.permutation_)
 
     # String representation of the STEs
     def __str__(self):

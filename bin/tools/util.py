@@ -5,8 +5,8 @@
     email: tjt7a@virginia.edu
     University of Virginia
     ----------------------
-    24 February 2017
-    Version 1.1
+    12 June 2017
+    Version 0.2
 '''
 
 import math
@@ -46,7 +46,7 @@ def getordering(ft):
 
         for _i in range(0, ft.ste_count_):
 
-            assert len(stes[_i] == 1, "Bad assumption about size of STE allocation")
+            assert len(stes[_i]) == 1, "Bad assumption about size of STE allocation"
 
             permutation.append(stes[_i].pop())
 
@@ -136,6 +136,8 @@ def compact(threshold_map, priority='runtime', unrolled=False, verbose=True):
 
     # This means we have remaining small features
     if len(threshold_counts) > 0:
+
+        assert not unrolled, "It appears that something went wrong with generating long chains";
 
         if verbose:
             logging.info("We still have %d features left\
@@ -500,7 +502,8 @@ def small_features(stes, feature_pointer, threshold_map, threshold_counts,
 def balance(feature_list, sizes, threshold_map, threshold_counts,
             BINSIZE, verbose):
 
-    logging.info("Unbalanced feature list: %s" % str(feature_list))
+    if verbose:
+        logging.info("Unbalanced feature list: %s" % str(feature_list))
 
     # Find the min number of features in any of the STEs
     min_features = len(min(feature_list, key=len))

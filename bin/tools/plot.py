@@ -7,8 +7,8 @@
     email: tjt7a@virginia.edu
     University of Virginia
     ----------------------
-    22 February 2017
-    Version 1.0
+    12 June 2017
+    Version 0.2
 '''
 
 # Utility Imports
@@ -45,7 +45,7 @@ def plot_thresholds(threshold_map):
     # Plot threshold counts
     plt.bar(range(len(features)), thresholds)
     plt.xlabel('Feature (sorted by threshold count)')
-    plt.ylabel('Sorted Count of Unique Thresholds Per Feature')
+    plt.ylabel('Count of Unique Thresholds Per Feature')
     plt.ylim([0, thresholds[-1]])
     plt.xlim([0, len(features)])
     plt.title('Unique Thresholds Used Per Feature (Min:%d, Max:%d)' %

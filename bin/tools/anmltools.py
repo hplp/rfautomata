@@ -9,8 +9,8 @@
     email: tjt7a@virginia.edu
     University of Virginia
     ----------------------
-    21 November 2016
-    Version 1.0
+    12 June 2017
+    Version 0.2
 '''
 from classes.Anml import *
 

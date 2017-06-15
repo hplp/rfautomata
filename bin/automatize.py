@@ -2,11 +2,13 @@
 
 '''
     The purpose of this program is to convert
-    SKLEARN and QUICKLEARN models into an
+    Scikit Learn and Quick Rank models into an
     automata representation.
+    * http://scikit-learn.org/stable/
+    * https://github.com/hpclab/quickrank
 
     For the time being let's only support Random Forests,
-    BRTs, ADABOOST, and Quicklearn Models.
+    BRTs, ADABOOST, and QuickRank Models.
     ----------------------
     Author: Tom Tracy II
     email: tjt7a@virginia.edu
@@ -19,8 +21,8 @@
     ----------------------
     features: a LIST containing all of the features
     
-    threshold_map: a DICT that maps features to a list of
-    all thresholds used for that feature in the model
+    threshold_map: a Python Dictionary that maps features to a list of
+    all thresholds used for that feature in the entire model
     
 '''
 
@@ -95,6 +97,7 @@ def load_cftvm(cftFile):
 # This function uses one STE per feature, and includes inequalities (GT, or LTEQ) and floating point thresholds
 def make_mnrl_chains(chains):
 
+    # Make a new MNRL Network called Chains
     mnrl_network = mnrl.MNRLNetwork('chains')
 
     for chain in chains:
@@ -102,7 +105,7 @@ def make_mnrl_chains(chains):
         report_code = chain.chain_id_
         previous_id = None
 
-        # Go through each chain..
+        # Go through each state in the chain..
         for i, state in enumerate(chain.nodes_):
 
             # Make the first node an enable-on START node that doesn't report
@@ -255,7 +258,7 @@ def set_character_sets(chain, ft):
         # Haven't found our 'range' yet
         found = False
 
-        # If this STE accepts <=
+        # If this STE accepts <= the threshold
         if not node.gt_:
 
             # Go through each STE from the smallest to largest features
@@ -411,6 +414,9 @@ if __name__ == '__main__':
     parser.add_option('--longer', action='store_true', default=False,
                       dest='longer',
                       help='Make a 1000x longer input (23,100,000)')
+    parser.add_option('--thresholds', action='store_true', default=False,
+                      dest='plot_thresholds',
+                      help='Generate a plot of the distribution of threshold counts')
     parser.add_option('-v', '--verbose', action='store_true', default=False,
                       dest='verbose', help='Verbose')
     options, args = parser.parse_args()
@@ -424,7 +430,9 @@ if __name__ == '__main__':
 
         # Load the model file
         if options.model is not None:
-            logging.info("Loading model file from %s" % options.model)
+
+            if options.verbose:
+                logging.info("Loading model file from %s" % options.model)
 
             # Grab the model
             model = None
@@ -450,8 +458,9 @@ if __name__ == '__main__':
             raise ValueError("No valid model; provide -m <model filename>")
             exit(-1)
 
-        logging.info("Grabbed %d constituent trees to be 'chained'" %
-                     len(trees))
+        if options.verbose:
+            logging.info("Grabbed %d constituent trees to be 'chained'" %
+                         len(trees))
 
         # Convert all trees to chains
         chains = []
@@ -469,7 +478,8 @@ if __name__ == '__main__':
         # To deal with quickrank, we need to parse the trees differently
         if quickrank:
 
-            logging.info("Converting QuickRank trees to chains")
+            if options.verbose:
+                logging.info("Converting QuickRank trees to chains")
 
             # Here is where we generate the chains from the trees
             for tree_id, tree_weight, tree_split in trees:
@@ -486,18 +496,21 @@ if __name__ == '__main__':
 
         else:
 
-            logging.info("Converting SKLEARN trees to chains")
+            if options.verbose:
+                logging.info("Converting SKLEARN trees to chains")
 
             classes = model.classes_
 
-            logging.info("%d unique classifications available: %s" %
-                         (len(classes), str(model.classes_)))
+            if options.verbose:
+                logging.info("%d unique classifications available: %s" %
+                             (len(classes), str(model.classes_)))
 
             for tree_id, tree in enumerate(trees):
 
                 tree_to_chains(tree, tree_id, chains, threshold_map, values)
 
-            logging.info("There are %d chains" % len(chains))
+            if options.verbose:
+                logging.info("There are %d chains" % len(chains))
 
             for _i in values:
                 # value_map[classes[_i]] = _i + 1
@@ -506,7 +519,8 @@ if __name__ == '__main__':
                 value_map = None
                 reverse_value_map[_i + 1] = classes[_i]
 
-        logging.info("Done converting trees to chains; now sorting")
+        if options.verbose:
+            logging.info("Done converting trees to chains; now sorting")
 
         # Because we built the chains from the left-most to the right-most leaf
         # We can simply assign chain ids sequentially over our list
@@ -522,7 +536,8 @@ if __name__ == '__main__':
 
             np.savetxt("testing.csv", X_test, delimiter=',', fmt='%1.4e')
 
-            logging.info("Done generating MNRL and testing output files")
+            if options.verbose:
+                logging.info("Done generating MNRL and testing output files")
 
             exit(0)
 
@@ -536,16 +551,19 @@ if __name__ == '__main__':
                          (len(threshold_map.keys()), min(threshold_map.keys()),
                           max(threshold_map.keys())))
 
-        # Let's look at the threshold distribution if verbose
-        # if options.verbose:
-        #   plot.plot_thresholds(threshold_map)
+        # Let's look at the threshold distribution
+        if options.plot_thresholds:
+            from tools.plot import plot_thresholds
+            plot_thresholds(threshold_map)
 
-        logging.info("Building the Feature Table")
+        if options.verbose:
+            logging.info("Building the Feature Table")
 
         # Create ideal address spacing for all features and thresholds
         ft = FeatureTable(threshold_map, unrolled=options.unrolled)
 
-        logging.info("Sorting and combining the chains")
+        if options.verbose:
+            logging.info("Sorting and combining the chains")
 
         # Set the character sets for each node in the chains
         # Then sort and combine the states in the chains
@@ -553,23 +571,26 @@ if __name__ == '__main__':
             set_character_sets(chain, ft)
             chain.sort_and_combine()
 
-        logging.info("Dumping Chains, Feature Table,\
-            Value Map and Reverse Value Map to pickle")
-
-        logging.info("Done writing out files")
+        if options.verbose:
+            logging.info("Dumping Chains, Feature Table,\
+                Value Map and Reverse Value Map to pickle")
 
     if options.gpu:
 
-        logging.info("Generating %d GPU chains" % (len(chains)))
+        if options.verbose:
+            logging.info("Generating %d GPU chains" % (len(chains)))
+
         gputools.gpu_chains(chains, ft, value_map, options.anml)
 
     else:
 
-        logging.info("Generating ANML file with %d chains" % (len(chains)))
+        if options.verbose:
+            logging.info("Generating ANML file with %d chains" % (len(chains)))
 
         generate_anml(chains, ft, value_map, options.anml, unrolled=options.unrolled)
 
-    logging.info("Dumping test file")
+    if options.verbose:
+        logging.info("Dumping test file")
 
     X_test, y_test = load_test("testing_data.pickle")
 
