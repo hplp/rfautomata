@@ -57,9 +57,11 @@ class FeatureTable(object):
         self.start_loop_ = start_loop
         self.end_loop_ = end_loop
 
-        # Get loopy information
-        self.permutation_ = util.getordering(self)
+        # print "Start, End: ", self.start_loop_, self.end_loop_
+        # print(self)
 
+        # Get loopy information (permutation of features)
+        self.permutation_ = util.getordering(self)
 
         print "Permutation: %s" %\
             str(self.permutation_)
