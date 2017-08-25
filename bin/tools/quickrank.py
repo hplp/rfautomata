@@ -222,6 +222,8 @@ if __name__ == '__main__':
     # Create ideal address spacing for all features and thresholds
     ft = FeatureTable(threshold_map)
 
+    print "I'm here!"
+
     logging.info("Compacting the Feature Table")
 
     ft.compact()    # Run the compactor (NOT IDEAL, but good enough)

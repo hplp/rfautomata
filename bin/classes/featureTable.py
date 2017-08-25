@@ -65,6 +65,7 @@ class FeatureTable(object):
 
         print "Permutation: %s" %\
             str(self.permutation_)
+        print "Done initializing"
 
     # String representation of the STEs
     def __str__(self):
