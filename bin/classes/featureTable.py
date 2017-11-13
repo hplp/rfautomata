@@ -63,10 +63,6 @@ class FeatureTable(object):
         # Get loopy information (permutation of features)
         self.permutation_ = util.getordering(self)
 
-        print "Permutation: %s" %\
-            str(self.permutation_)
-        print "Done initializing"
-
     # String representation of the STEs
     def __str__(self):
         string = "STE Count: %d\n" % self.ste_count_

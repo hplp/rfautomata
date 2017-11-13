@@ -37,11 +37,13 @@ from sklearn import metrics
 # Global dictionaries
 model_names = {'rf': 'Random Forest',
                'brt': 'Boosted Regression Trees',
-               'ada': 'Adaboost Classifier'}
+               'ada': 'Adaboost Classifier',
+               'xgb': 'XGboost'}
 
 metric_names = {'acc': 'accuracy',
                 'f1': 'f1-score',
-                'mse': 'mean squared error'}
+                'mse': 'Mean Squared Error',
+                'auc': 'Area Under the Curve'}
 
 datasets = {'mnist': 'MNIST original'}
 
@@ -69,6 +71,9 @@ def test_model(model, X_test, y_test, metric):
     elif metric == 'mse':
 
         return metrics.mean_squared_error(y_test, model.predict(X_test))
+
+    # elif metric == 'auc':
+    #     return metrics.auc()
 
     else:
 
@@ -115,17 +120,24 @@ def get_throughput(model, X_test, iters):
 
     logging.info("Test Data: %d samples x %d features" % (X_test.shape))
 
+    # Grab the start time
     start_time = time.time()
 
+    # Do a bunch of predictions
     for i in range(iters):
         model.predict(X_test)
 
+    # Grab the end time
     end_time = time.time()
 
+    # Grab average time per iterations
     avg_time = (end_time - start_time) / float(iters)
     print("Avg Time: ", avg_time)
 
+    # Throughput = num_feature_vectors / average time per iteration
     throughput = float(X_test.shape[0]) / avg_time
+
+    # Metric becomes kilo-samples / sec
     kthroughput = throughput / 1000.0
 
     logging.info("Throughput: %f ksamples / second" % (kthroughput))
@@ -308,6 +320,7 @@ if __name__ == '__main__':
     # Get throughput results for the CPU
     get_throughput(model, X_test, 100)
 
+    # Write out the report
     if options.report is not None:
         write_report(options.report, report_dict)
 

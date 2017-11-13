@@ -570,8 +570,6 @@ def small_features(stes, feature_pointer, threshold_map, threshold_counts,
 
 # Try to balance the STEs so that there are an equal number of features
 # per STE (+/- 1)
-
-
 def balance(feature_list, sizes, threshold_map, threshold_counts,
             BINSIZE, verbose):
 
