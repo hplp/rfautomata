@@ -1,160 +1,156 @@
-# Random Forest Automata
+# Automatize - Random Forest Automata Generator
 
-This is an open-source implementation of Decision Tree-based (Random Forest, Boosted Regression Trees, Adaboost) machine learning models as Automata on Micron's Automata Processor (AP). This code trains a Decision Tree-based model with Scikit Learn (on the CPU), and transforms the resulting model into ANML, an XML-like representation of Nondeterministic Finite Automata (NFA) for the Automata Processor.
+The Random Forest automata generator, **bin/automatize.py**, is an Object-Oriented style Python script that will generate an ANML file compatible with the Micron Automata Processor(AP).
 
-For more about the Automata Processor, visit CAP's website: http://cap.virginia.edu/
+For program dependancies see main <a href="https://github.com/jeffudall/ANMLZooCopy/blob/master/RandomForest/README.md">RandomForest README</a>.
 
-This project is written in Python in the Object-Oriented style.
+## Inputs
+The **bin/automatize.py** script will create an ANML file when given a model pickle file.
 
-## Quickstart Guide
+The command line parameters are in this format:  
+`automatize.py <model pickle file> [OPTIONS]`
 
-To get started with the code using the example MNIST dataset, use the following instructions:
+## Usage Parameter Descriptions
 
-### Download
-
-Clone the code to your local machine: 
-`git clone git@github.com:tjt7a/rfautomata.git`
-
-Make sure that you have the following dependencies installed, if missing, use pip to install:
-- optparse
-- logging
-- pickle
-- numpy
-
-### Train the MNIST Model
-
-Use the trainensemble script to train a Random Forest model on the canned MNIST dataset.
-`bin/trainEnsemble.py -c mnist -m rf -d 8 -n 10`
-`bin/trainEnsemble.py -c mnist -m rf -l 250 -n 10`
-
-- c: canned dataset (MNIST)
-- m: model type (Random Forest)
-- d: depth of the decision trees (8) OR -l: number of leaves per decision tree
-- n: number of trees in the ensemble (10)
-
-This script will generate several output files:
-- model.pickle: a serialized Scikit Learn Random Forest model
-- report.txt: a file that contains the parameters used for training the model
-- testing_data.pickle: a serialized file containing the training data for testing the model
-- predictions.txt: a text file that contains the model predictions (for testing)
-
-### Test the CPU throughput of the model
-
-Use the test_cpu script to calculate the average throughput of your model on your CPU.
-`bin/test_cpu.py` (in the same directory as your generated model files)
-
-You can also optionally provide:
-- n: the number of test iterations (defaults to 1000)
-- j: the number of threads to be used for running the model
-- m: the serialized model file (defaults to model.pickle)
-- t: the testing data (defaults to testing_data.pickle)
-
-The resulting throughput is measures in kilo samples classified per wall-clock second.
-
-### Convert the Scikit Learn model into ANML Automata
-
-Use the automatize script to convert the Scikit Learn model into an AP compatible ANML file.
-`bin/automatize.py model.pickle --short -v`
-
-Some other optional parameters include: 
-- a: The name of the output ANML file (default: model.anml)
-- --gpu: Generate GPU compatible chains and output files **EXPERIMENTAL**
-- --circuit: Generate circuit compatible chains and output files **EXPERIMENTAL**
-- --unrolled: Don't compress the chains into loops; this generates one STE per feature per chains (default: false)
-- --mnrl: Generate MNRL chains with floating point inequalities (default: false)
-- --short: Make a short version of the input file to the AP for testing(100 samples) (default: false)
-- --longer: Make a 1000x larger input file to the AP (default: false)
-- -p: Generate a plot of the threshold count distribution of the features.
-- -v: Verbose
-
-This will generate several output files:
-- model.anml: This is the ANML-formatted automata file that contains the RF automata.
-- input_file.bin: A transformed input file for testing. It was generated from the testing_data.pickle file.
+### [OPTIONS]
+You can also specifiy these optional parameters:
+- **`-a <name of output ANML file>`**: Name of output ANML file (default: model.anml)
+- **`--short`**: Make an input file with the first 100 inputs for testing (default: false)
+- **`--longer`**: Make a 1000x larger input file to the AP (default: false)
+- **`--unrolled`**: Skip compressing the chains into loops. This generates one STE per feature per chains. (This will create a very big output file.) (default: false)
+- **`-p`**: Generate a plot of the threshold count distribution of the features (default: false)
+- **`-v`**: Print verbose descriptions of each step in program's progress. (default: false)
+- **`--circuit`**: Generate circuit-compatible chains and output files (default: false) **EXPERIMENTAL**
+- **`--gpu`**: Generate GPU-compatible chains and output files (default: false) **EXPERIMENTAL**
 
 
-### Run on VASim
+## Example
+```
+$ bin/automatize.py model.pickle -a mymodel.anml --short -v
+```
 
-Now that you have a model.anml file and an input_file.bin, you can run your model on the AP or using a simulator like VASim.
-To run with VAsim, use the following parameters:
+## Outputs
+The **automatize.py** script creates the follwing files:  
+- **model.anml**: This is the ANML-formatted automata file
+- **input_file.bin**: A transformed input file for testing (in this case short). It was generated from the testing_data.pickle file.
 
-`vasim -r model.anml input_file.bin`
+---
 
-## The Data
+# Input File Generator - bin/trainEnsemble.py 
 
-In order to use this code to train ensemble modes from your own data, it is necessary to write an extractor for your raw data. This script processes your raw data and converts it into Numpy X and y matrices. These are then stored in a Numpy Zip file (.npz). Please see the following examples found in data/:
+## Inputs
+The decision tree ensemble data training script, **trainEnsemble.py**, will train a decision tree ensemble model when given a canned dataset, *c*, OR training and testing data (*t*, *x*), a model type, *m*, a depth of decision trees, *d* OR number of leaf nodes per tree, *l*, and a number of trees, *n*.
 
-### ocrExtractor
+The command line parameters are in this format:
 
-The ocrExtractor program extracts the pixel feature matrix (X) and classification vector (y) from normalized handwritten letter data based on Rob Kassel's OCR work. The data can be obtained from the following locations:
+`trainEnsemble.py -c <canned dataset> -m <model type> -d <depth of decision trees> -n <number of trees in ensemble>`
 
-https://github.com/adiyoss/StructED/tree/master/tutorials-code/ocr/data
+## Usage Parameter Descriptions
 
-http://ai.stanford.edu/~btaskar/ocr/
+### -c \<canned dataset>
+This parameter specifies the name of the canned dataset used by **trainEnsemble.py** from SKLEARN. 
 
--i: Input OCR data file derived from Rob Kassel's MIT work
+MNIST, a canned dataset included in SciKit LEARN, is provided as an example.
 
--o: The output .npz filename that will contain X and y
+### -m \<model type>
+This parameter specifies model type
+- **`rf`** = **Random Forest**
+- **`brt`** = **Boosted Regression Trees**
+- **`ada`** = **Adaboost Classifier**
 
--v: Verbosity flag
+### -d \<depth of decision trees>
+This parameter specifies the maximum depth of the decision tree learners. 
 
---visualize: This flag will open a gui and show a random handwritten character for reference.
+### -n \<number of trees in ensemble>
+This parameter specifies the number of decision trees in the ensemble. 
 
-### mslrExtractor
+### [OPTIONS]
+You can also specifiy these optional parameters:
+- **`-l <number of leaves>`**: Instead of depth you can specify number of leaves for decision trees.  
+- **`-j <number of jobs>`**: You can specify the number of jobs to run in parallel for fit/predict.
+- **`-t <training npz file name>`**: Name of training data .npz file.   
+- **`-x <testing data npz file name>`**: Name of testing data .npz file. 
+- **`-f <number of features>`**: The number of features to use for training. 
+- **`--report`**: You can specify the name of the report file that contains infromation about the trained model. (default is *"report.txt"*)
+- **`--metric`**: Choose the metric used for evaluation.  
+    - **`acc`**: Accuracy score (default)  
+    - `f1` : F1 score   
+    - `mse`: Mean Squared Error  
+- **`--feature_importance`**: Dump the feature importance values of the trained ensemble. 
+- **`-p <Name of predictions file>`**: Name of the file containing model predictions for testing (default: predictions.txt)
+- **`-v`**: Print verbose descriptions of each step in program's progress (default: false) 
 
-The mslrExtractor program extracts the learn-to-rank feature matrix (X) and resulting rank score vector (y) from the MSLR LETOR data. The data can be obtained from Microsoft's website.
 
--i: Input MSLR data file
+## Example
+```
+$ trainEnsemble.py -c mnist -m rf -d 8 -n 10
+```
+This will make an Random Forest using the MNIST canned dataset with a maximum depth of 8 tree learners and 10 trees in the ensemble. 
 
--o: The output .npz filename that will contain X and y
+## Outputs
+The **trainEnsemble.py** script creates the follwing files:  
+- **model.pickle**: a serialized Scikit Learn decision tree ensemble model  
+- **report.txt**: a file that contains the parameters used for training the model  
+- **testing_data.pickle**: a serialized file containing the testing data
 
--v: Verbosity flag
+---
+
+## Other Inputs
+If you do not need customized inputs, the "inputs" folder contains a number of standardized input files.
+
+---
+
+# Majority Voter - bin/classify.py 
+
+## Inputs
+The Random Forest classify script, **classify.py**, reads a reports file generated by VASIM, and generates a file containing the resulting classifications.
+
+The command line parameters are in this format:
+
+`classify.py reports_0tid_0packet.txt`
+
+## Usage Parameter Descriptions
+
+### reports file
+This file is generated by VASIM with the **-r** flag, and contains one line per report.
 
 
-### trainEnsemble.py
+### [OPTIONS]
+You can also specifiy these optional parameters:
+- **`-o <classification output filename>`**: You can specify the classification filename. (default: classifications.txt) 
 
-The trainEnsemble program is responsible for training an SKLEARN ensemble machine learning model given a training/testing data set, depth (or number of leaf nodes per tree) and tree count. The output of this program includes a training score, an output model pickle file, test data, predictions, and a report file containing the model's metrics.
 
-- -c: A canned dataset in SKLEARN (mnist)
+## Outputs
+The resulting output file contains one line per classification in the following format:
 
-- -t: Training data file in .npz format
+*input index:classification*
 
-- -x: Testing data file in .npz format
+---
 
-- --metric: Provide training metric to be displayed
+# Optional - Test the CPU throughput of the model
+In order to get an approximation of the performance of the same Random Forest on a standard CPU processor you can use the **bin/test_cpu.py** script to calculate the average throughput of your model on your CPU. Simply run **test_cpu.py** in the same directory as your generated model files
 
-	1. 'acc': Accuracy
+## Usage Parameters
+All parameters are optional parameters:
+- **`-n <test iterations>`**: Number of test iterations (defaults to 1000)
+- **`-j <threads>`**: Number of threads used to run the model
+- **`-m <model file>`**: The serialized model file name (defaults to *model.pickle*)
+- **`-t <testing data>`**: The testing data output file name (defaults to *testing_data.pickle*)
+- **`-v`**: Print verbose descriptions of each step in program's progress.
 
-	2. 'f1': F1 Score
+## Example
+If you are using the default settings you can simply run it via this command:
+```
+$ test_cpu.py
+```
 
-	3. 'mse': Mean-squared error
+If using custom settings you can provide other options in this format:
+```
+$ test_cpu.py -n <test iterations> -j <threads> -m <model file> -t <testing data>
+```
 
-- -m: Choose one of the following models to train
-
-	1. 'rf': Random Forest
-
-	2. 'brt': Boosted Regression Tree
-
-	3. 'ada': Adaboost Classifier
-
-- --model-out: Name of the file for the model to be output to
-
-- -d: Max depth of the decision trees in the ensemble
-
-- -l: Max number of leaves per tree in the ensemble
-
-- -n: Number of decision trees allowed in the ensemble
-
-- -f: The number of features to use when training the ensemble
-
-- -j: The number of jobs to run in parallel for fit/predict
-
-- --feature_importance: Dump the feature importance values of the trained ensemble
-
-- -v: Verbosity flag
-
-- -r: Name of the report file containing metrics
-
-- -p: The name of the file that contains the predictions made by the model (default: predictions.txt)
+## Output
+The resulting throughput is a measurment in kilo samples classified per wall-clock second.
 
 # Citing This Code
 

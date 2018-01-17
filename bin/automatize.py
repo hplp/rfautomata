@@ -259,8 +259,7 @@ if __name__ == '__main__':
         chain.sort_and_combine()
 
     if options.verbose:
-        logging.info("Dumping Chains, Feature Table,\
-            Value Map and Reverse Value Map to pickle")
+        logging.info("Dumping Chains, Feature Table, Value Map and Reverse Value Map to pickle")
 
     # Generate output for GPU implementation
     if options.gpu:
