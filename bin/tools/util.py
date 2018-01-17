@@ -88,7 +88,7 @@ def getordering(ft):
 
 '''
     Combine the feature address spaces to best utilize STEs
-    
+
         threshold_map contains mapping from feature index to thresholds
 '''
 
@@ -158,6 +158,9 @@ def compact(threshold_map, priority='runtime', unrolled=False, verbose=True):
                                              threshold_map, threshold_counts,
                                              BINSIZE, verbose,
                                              priority=priority)
+
+    else:
+        start_loop, end_loop = None, None
 
     # Verification to make sure resulting feature pointer and stes are right
     verification(threshold_map, feature_pointer, stes, verbose)

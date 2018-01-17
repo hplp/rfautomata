@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-'''
+"""
     The purpose of this program is to convert
     Scikit Learn (RF, BRT) and Quick Rank models into an
     automata representation.
@@ -14,21 +14,23 @@
     email: tjt7a@virginia.edu
     University of Virginia
     ----------------------
-    12 June 2017
-    Version 0.2
+    15 January 2018
+    Version 0.3
 
     *Definitions*
     ----------------------
     features: a LIST containing all of the features
-    
+
     threshold_map: a Python Dictionary that maps features to a list of
-    all thresholds used for that feature in the entire model
-    
-'''
+    all thresholds used for that feature in the entire ensemble model
+        ie if feature 0 is split on 1.2, 3, 4.5 and 6, the entry in the
+        threshold map would look like this:
+            threshold_map[0] = [1.2, 3, 4.5, 6]
+
+"""
 
 # Utility Imports
 from optparse import OptionParser
-import logging
 import numpy as np
 import os.path
 
@@ -43,6 +45,9 @@ from tools.anmltools import *
 import tools.gputools as gputools
 from tools.io import *
 
+# WARNING: EXPERIMENTAL
+from tools.circuitTools import generate_circuits
+
 # MNRL Tools
 from tools.mnrltools import *
 
@@ -56,68 +61,77 @@ if __name__ == '__main__':
 
     # Parse Command Line Arguments
     usage = '%prog [options][model filename]'
+
     parser = OptionParser(usage)
+
     parser.add_option('-a', '--anml', type='string', dest='anml',
                       default='model.anml', help='ANML output filename')
-    parser.add_option('-f', '--fsm', type='string', dest='fsm',
-                      help='FSM filename for compiling')
+
     parser.add_option('--gpu', action='store_true', default=False, dest='gpu',
-                      help='Generate GPU compatible chains and output files')
+                      help='Generate GPU compatible chains and output files **EXPERIMENTAL**')
+
+    parser.add_option('--circuit', action='store_true', default=False, dest='circuit',
+                      help='Generate circuit compatible chains and output files **EXPERIMENTAL**')
+
     parser.add_option('--unrolled', action='store_true', default=False, dest='unrolled',
                       help='Set to get unrolled chains (no loops)')
+
     parser.add_option('--mnrl', action='store_true', default=False, dest='mnrl',
                       help='Generate MNRL chains (with floating point thresholds \
                       and one STE per feature)')
+
     parser.add_option('--short', action='store_true', default=False, dest='short',
                       help='Make a short version of the input (100 samples)')
+
     parser.add_option('--longer', action='store_true', default=False,
                       dest='longer',
                       help='Make a 1000x longer input (23,100,000)')
+
     parser.add_option('-p', '--thresholds', action='store_true', default=False,
                       dest='plot_thresholds',
                       help='Generate a plot of the distribution of threshold counts')
+
     parser.add_option('-v', '--verbose', action='store_true', default=False,
                       dest='verbose', help='Verbose')
+
     options, args = parser.parse_args()
 
+    model_filename = None
 
-    # Load the model file
+    # Verify model filename parameter
     if len(args) == 1:
 
         model_filename = args[0]
 
         # Verify that the file exists
-        if(not os.path.isfile(model_filename)):
-            parser.error("No valid model file; provide -m <model filename>")
+        if not os.path.isfile(model_filename):
+            parser.error("No valid model file; provide <model filename>")
 
         if options.verbose:
             logging.info("Loading model file from %s" % model_filename)
 
-        # Grab the model
-        model = None
-
-        # Simple check if quickrank model (might wanna improve this later)
-        if '.xml' in model_filename:
-
-            quickrank = True
-
-            model = qr.load_qr(model_filename)
-
-            # Grab the constituent trees
-            trees = qr.grab_data(model)
-
-        # Else, its a scikit learn-type model
-        else:
-            model = load_model(model_filename)
-
-            if not model:
-                exit(-1)
-
-            # Grab the constituent trees
-            trees = [dtc.tree_ for dtc in model.estimators_]
-
     else:
-        parser.error("No valid model; provide -m <model filename>")
+        parser.error("No valid model; provide <model filename>")
+
+    # Grab the model
+    model = None
+
+    # Simple check if quickrank model (might wanna improve this later)
+    if '.xml' in model_filename:
+
+        quickrank = True
+
+        model = qr.load_qr(model_filename)
+
+        # Grab the constituent trees
+        trees = qr.grab_data(model)
+
+    # Else, its a scikit learn-type model
+    else:
+        model = load_model(model_filename)
+
+        # Grab the constituent trees
+        trees = [dtc.tree_ for dtc in model.estimators_]
 
     if options.verbose:
         logging.info("Grabbed %d constituent trees to be 'chained'" %
@@ -127,7 +141,8 @@ if __name__ == '__main__':
     # Each chain represents a root->leaf path
     chains = []
 
-    # Keep track of map from feature -> thresholds
+    # Keep track of map from unique
+    # feature -> thresholds used for branch comparisons
     threshold_map = {}
 
     # Keep track of unique class values (unique(Y))
@@ -204,15 +219,15 @@ if __name__ == '__main__':
 
         # Catch
         if not X_test or not y_test:
-            exit(-1)
+            raise ValueError
 
         np.savetxt("testing.csv", X_test, delimiter=',', fmt='%1.4e')
 
         if options.verbose:
             logging.info("Done generating MNRL and testing output files")
 
+        # We stop here with MNRL
         exit(0)
-
 
     # Sort the thresholds for all features
     for f, t in threshold_map.items():
@@ -247,6 +262,7 @@ if __name__ == '__main__':
         logging.info("Dumping Chains, Feature Table,\
             Value Map and Reverse Value Map to pickle")
 
+    # Generate output for GPU implementation
     if options.gpu:
 
         if options.verbose:
@@ -254,6 +270,15 @@ if __name__ == '__main__':
 
         gputools.gpu_chains(chains, ft, value_map, options.anml)
 
+    # Generate output for circuit implementation
+    elif options.circuit:
+
+        if options.verbose:
+            logging.info("Generating circuit file with %d chains" % (len(chains)))
+
+        generate_circuits(chains, ft, value_map, "circuits.txt", unrolled=options.unrolled)
+
+    # Else, we're dealing with a spatial architecture; generate ANML
     else:
 
         if options.verbose:
@@ -266,8 +291,8 @@ if __name__ == '__main__':
 
     X_test, y_test = load_test("testing_data.pickle")
 
-    # If using quickrank, are features are based at index = 1, instead of 0
+    # If using quickrank, our features are based at index = 1, instead of 0
     ft.input_file(X_test, "input_file.bin", onebased=quickrank,
-                  short=options.short, delimited=not options.gpu)
+                  short=options.short, delimited=True)
 
     logging.info("Done!")
