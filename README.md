@@ -24,16 +24,19 @@ Make sure that you have the following dependencies installed, if missing, use pi
 ### Train the MNIST Model
 
 Use the trainensemble script to train a Random Forest model on the canned MNIST dataset.
-`bin/trainensemble.py -c mnist -m rf -d 8 -n 10`
+`bin/trainEnsemble.py -c mnist -m rf -d 8 -n 10`
+`bin/trainEnsemble.py -c mnist -m rf -l 250 -n 10`
+
 - c: canned dataset (MNIST)
 - m: model type (Random Forest)
-- d: depth of the decision trees (8)
+- d: depth of the decision trees (8) OR -l: number of leaves per decision tree
 - n: number of trees in the ensemble (10)
 
 This script will generate several output files:
 - model.pickle: a serialized Scikit Learn Random Forest model
 - report.txt: a file that contains the parameters used for training the model
 - testing_data.pickle: a serialized file containing the training data for testing the model
+- predictions.txt: a text file that contains the model predictions (for testing)
 
 ### Test the CPU throughput of the model
 
@@ -51,17 +54,21 @@ The resulting throughput is measures in kilo samples classified per wall-clock s
 ### Convert the Scikit Learn model into ANML Automata
 
 Use the automatize script to convert the Scikit Learn model into an AP compatible ANML file.
-`bin/automatize.py -m model.pickle `
+`bin/automatize.py model.pickle --short -v`
 
 Some other optional parameters include: 
-- a : The name of the output ANML file (default: model.anml)
+- a: The name of the output ANML file (default: model.anml)
+- --gpu: Generate GPU compatible chains and output files **EXPERIMENTAL**
+- --circuit: Generate circuit compatible chains and output files **EXPERIMENTAL**
 - --unrolled: Don't compress the chains into loops; this generates one STE per feature per chains (default: false)
 - --mnrl: Generate MNRL chains with floating point inequalities (default: false)
-- --short: Make a short version of the input file to the AP (default: false)
+- --short: Make a short version of the input file to the AP for testing(100 samples) (default: false)
 - --longer: Make a 1000x larger input file to the AP (default: false)
+- -p: Generate a plot of the threshold count distribution of the features.
+- -v: Verbose
 
 This will generate several output files:
-- model.anml: This is the ANML-formatted automata file
+- model.anml: This is the ANML-formatted automata file that contains the RF automata.
 - input_file.bin: A transformed input file for testing. It was generated from the testing_data.pickle file.
 
 
@@ -105,13 +112,15 @@ The mslrExtractor program extracts the learn-to-rank feature matrix (X) and resu
 
 ### trainEnsemble.py
 
-The trainEnsemble program is responsible for training an SKLEARN ensemble machine learning model given a training/testing data set, depth and tree count. The output of this program includes a training score, an output model pickle file, and a report file containing the model's metrics.
+The trainEnsemble program is responsible for training an SKLEARN ensemble machine learning model given a training/testing data set, depth (or number of leaf nodes per tree) and tree count. The output of this program includes a training score, an output model pickle file, test data, predictions, and a report file containing the model's metrics.
 
--t: Training data file in .npz format
+- -c: A canned dataset in SKLEARN (mnist)
 
--x: Testing data file in .npz format
+- -t: Training data file in .npz format
 
---metric: Provide training metric to be displayed
+- -x: Testing data file in .npz format
+
+- --metric: Provide training metric to be displayed
 
 	1. 'acc': Accuracy
 
@@ -119,7 +128,7 @@ The trainEnsemble program is responsible for training an SKLEARN ensemble machin
 
 	3. 'mse': Mean-squared error
 
--m: Choose one of the following models to train
+- -m: Choose one of the following models to train
 
 	1. 'rf': Random Forest
 
@@ -127,30 +136,29 @@ The trainEnsemble program is responsible for training an SKLEARN ensemble machin
 
 	3. 'ada': Adaboost Classifier
 
---model-out: Name of the file for the model to be output to.
+- --model-out: Name of the file for the model to be output to
 
--d: Max depth of the resulting ensemble model
+- -d: Max depth of the decision trees in the ensemble
 
--n: Number of decision trees allowed in the ensemble
+- -l: Max number of leaves per tree in the ensemble
 
--v: Verbosity flag
+- -n: Number of decision trees allowed in the ensemble
 
--r: Name of the report file containing metrics
+- -f: The number of features to use when training the ensemble
 
-### automatize.py
+- -j: The number of jobs to run in parallel for fit/predict
 
-The automatize program is responsible for converting an SKLEARN ensemble machine learning model into a representation that can be executed on the Automata Processor, ANML.
+- --feature_importance: Dump the feature importance values of the trained ensemble
 
--m: Input SKLEARN model pickle file from trainEnsemble.py
+- -v: Verbosity flag
 
--a: ANML output filename
+- -r: Name of the report file containing metrics
 
---chain-ft-vm: Intermediate pickle filename containing the chains, the feature table, and value map
-
--v: Verbosity flag
+- -p: The name of the file that contains the predictions made by the model (default: predictions.txt)
 
 # Citing This Code
 
 If you use this code for research purposes, please cite the below paper which introduces the contained algorithms.
 Citation:
-Tracy II, Tommy, et al. "Towards machine learning on the Automata Processor." International Conference on High Performance Computing. Springer International Publishing, 2016.
+
+Tracy II, Tommy & Fu, Al, et al. "Towards machine learning on the Automata Processor." International Conference on High Performance Computing. Springer International Publishing, 2016.
