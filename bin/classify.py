@@ -24,7 +24,7 @@ logging.basicConfig(format='%(asctime)s : %(message)s', level=logging.INFO)
 
 
 # Read reports, transform, dump to output file
-def classify(reports_filename_, transformer, output_filename_):
+def classify(reports_filename_, transformer_, output_filename_):
 
     # This dict acts as a map from the cycle index to a list of the reports for that index
     report_map = {}
@@ -41,9 +41,12 @@ def classify(reports_filename_, transformer, output_filename_):
             report_code = int(report.split(':')[-1].strip())
 
             if report_index not in report_indexes:
+
                 report_map[report_index] = [report_code]
                 report_indexes.append(report_index)
+
             else:
+
                 report_map[report_index].append(report_code)
 
 
@@ -53,7 +56,7 @@ def classify(reports_filename_, transformer, output_filename_):
         for index in report_indexes:
 
             # Apply the transformation to each report code at the given index
-            classifications = map(transformer, report_map[index])
+            classifications = map(transformer_, report_map[index])
 
             # Now find the MODE(); that's our classification!
             classification = max(classifications, key=classifications.count)
@@ -75,17 +78,14 @@ if __name__ == '__main__':
 
     options, args = parser.parse_args()
 
-    # Verify model filename parameter
+    # Verify input filename parameter
     if len(args) == 1:
 
         reports_filename = args[0]
 
         # Verify that the file exists
         if not os.path.isfile(reports_filename):
-            parser.error("No valid model file; provide <model filename>")
-
-        if options.verbose:
-            logging.info("Loading model file from %s" % reports_filename)
+            parser.error("No valid reports file; provide <reports filename>")
 
     else:
         parser.error("No valid reports file; provide <reports filename>")
